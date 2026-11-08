@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10141c">
+<title>Шпигун</title>
+<style>
+  :root {
+    --bg: #10141c; --panel: #181e29; --line: #2a3242;
+    --fg: #eef1f6; --muted: #8d97a8;
+    --paper: #ece0c4; --paper-ink: #24201a;
+    --red: #d2442f; --ok: #6cc37a;
+    --display: "Courier New", Consolas, monospace;
+    --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body { background: var(--bg); color: var(--fg); font: 17px/1.45 var(--body);
+         padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  header { display: flex; align-items: center; gap: 10px; padding: 12px 0; position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  .me { font-weight: 700; }
+  .grow { flex: 1; }
+  .timer { font: 700 22px var(--display); font-variant-numeric: tabular-nums; }
+  .timer.low { color: var(--red); }
+  .rolebtn { background: var(--panel); color: var(--paper); border: 1px solid var(--line); padding: 8px 12px; font-size: 15px; }
+  main { display: grid; gap: 16px; padding-top: 6px; }
+  h1 { font: 700 26px/1.2 var(--display); margin: 0; text-wrap: balance; }
+  p { margin: 0; }
+  .muted { color: var(--muted); }
+  .center { text-align: center; }
+  button { font: 600 18px var(--body); border: 0; border-radius: 12px; padding: 16px; cursor: pointer; color: var(--fg); background: var(--panel); }
+  button:disabled { opacity: .45; }
+  .primary { background: var(--red); color: #fff; }
+  .wide { width: 100%; }
+  input[type=text] { width: 100%; font: 20px var(--body); padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+  input[type=text]:focus { outline: 2px solid var(--paper); }
+  .list { display: grid; gap: 10px; }
+  .opt { text-align: left; display: flex; justify-content: space-between; align-items: center; }
+  .opt.sel { background: var(--red); color: #fff; }
+  .banner { padding: 10px 14px; border-radius: 10px; background: rgba(210,68,47,.15); border: 1px solid rgba(210,68,47,.45); color: #ffb3a6; font-weight: 600; }
+  .waiting { padding: 26px 16px; border: 1px dashed var(--line); border-radius: 14px; text-align: center; color: var(--muted); }
+  .waiting b { color: var(--fg); }
+
+  /* досьє з роллю */
+  .dossier { background: var(--paper); color: var(--paper-ink); border-radius: 8px; padding: 22px 20px; position: relative; overflow: hidden; min-height: 210px; box-shadow: 0 10px 30px rgba(0,0,0,.4); user-select: none; -webkit-user-select: none; }
+  .dossier .lbl { font: 700 12px var(--display); letter-spacing: .2em; text-transform: uppercase; opacity: .6; }
+  .dossier .val { font: 700 28px/1.2 var(--body); margin: 2px 0 14px; }
+  .dossier .val.spy { color: var(--red); font-family: var(--display); letter-spacing: .06em; }
+  .dossier .cover { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, #d9caa6 0 14px, #e3d5b3 14px 28px); display: grid; place-items: center; text-align: center; padding: 20px; font: 700 18px var(--display); color: var(--paper-ink); }
+  .dossier .cover .st { color: var(--red); border: 3px solid var(--red); padding: 6px 12px; transform: rotate(-5deg); margin-bottom: 10px; display: inline-block; letter-spacing: .1em; }
+  .dossier.open .cover { display: none; }
+  .overlay { position: fixed; inset: 0; background: rgba(5,7,12,.85); display: grid; place-items: center; padding: 20px; z-index: 20; }
+  .overlay .dossier { width: min(420px, 100%); }
+
+  /* малювання */
+  .canvaswrap { background: #fff; border-radius: 10px; overflow: hidden; touch-action: none; }
+  canvas { display: block; width: 100%; aspect-ratio: 1; touch-action: none; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sw { width: 38px; height: 38px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+  .sw.on { border-color: var(--paper); }
+  .sz { padding: 8px 12px; font-size: 15px; }
+  .sz.on { background: var(--paper); color: var(--paper-ink); }
+
+  .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .item { display: grid; gap: 2px; justify-items: center; padding: 12px 6px; font-size: 14px; }
+  .item .e { font-size: 34px; line-height: 1.1; }
+  .item.taken { opacity: .3; }
+  .bigitem { text-align: center; font-size: 64px; }
+</style>
+</head>
+<body>
+<header>
+  <span class="me" id="me"></span>
+  <span class="grow"></span>
+  <span class="timer" id="timer"></span>
+  <button class="rolebtn" id="rolebtn" hidden>Моя роль</button>
+</header>
+<main id="main"></main>
+<div class="overlay" id="overlay" hidden></div>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// кімната: з QR-посилання (?r=КОД) або з попереднього входу
+const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+const urlRoom = (new URLSearchParams(location.search).get('r') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+let ROOM = urlRoom || ls.get('spy_room') || '';
+let myId = ls.get('spy_room') === ROOM ? ls.get('spy_id') : null;
+let st = null, off = 0, es = null, lastKey = '', drawSent = false, canvasApi = null;
+
+async function api(action, extra = {}) {
+  try {
+    const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, room: ROOM, id: myId, ...extra }) });
+    const out = await r.json();
+    if (pollTimer) pollOnce();
+    return out;
+  } catch (e) { return { error: "Немає зв'язку з грою" }; }
+}
+const P = id => (st.players.find(p => p.id === id) || { name: '?' });
+const left = () => st && st.endsAt ? Math.max(0, Math.ceil((st.endsAt - Date.now() - off) / 1000)) : null;
+
+const STATE_URL = () => `/state?room=${ROOM}&id=${encodeURIComponent(myId || '')}`;
+// живе оновлення: SSE, а якщо проксі його гальмує — опитування кожні 1.5 с
+let lastAct = 0, gotAny = false, connAt = 0, pollTimer = null;
+function onState(v) {
+  gotAny = true; lastAct = Date.now();
+  if (v.noRoom) { leaveRoom('Кімнату не знайдено. Перевір код на екрані ведучого.'); return; }
+  st = v; off = st.now - Date.now(); render();
+}
+function leaveRoom(msg) {
+  if (es) { es.close(); es = null; }
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  ls.set('spy_id', null); ls.set('spy_room', null);
+  myId = null; st = null; gotAny = false; connAt = 0;
+  joinScreen(msg, true);
+}
+function pollOnce() { return fetch(STATE_URL()).then(r => r.json()).then(onState).catch(() => {}); }
+function startPoll() { if (es) { es.close(); es = null; } if (!pollTimer) { pollTimer = setInterval(pollOnce, 1500); pollOnce(); } }
+setInterval(() => {
+  if (pollTimer) return;
+  if ((!gotAny && connAt && Date.now() - connAt > 6000) || (gotAny && Date.now() - lastAct > 40000)) startPoll();
+}, 2000);
+function connect() {
+  if (es) es.close();
+  if (!ROOM) return joinScreen();
+  connAt = Date.now();
+  if (pollTimer) { pollOnce(); return; }
+  es = new EventSource(`/events?room=${ROOM}&id=${encodeURIComponent(myId || '')}`);
+  es.onmessage = e => onState(JSON.parse(e.data));
+  es.addEventListener('ping', () => { lastAct = Date.now(); });
+}
+
+// ---------- вхід ----------
+function joinScreen(msg, clearCode) {
+  lastKey = 'join';
+  if (clearCode) ROOM = '';
+  const saved = ls.get('spy_name') || '';
+  $('#me').textContent = ''; $('#rolebtn').hidden = true;
+  $('#main').innerHTML = `
+    <h1>ШПИГУН</h1>
+    <p class="muted">Введи ім'я, під яким тебе знатимуть інші.</p>
+    ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
+    <input type="text" id="codeIn" maxlength="4" placeholder="Код кімнати (4 літери)" value="${esc(ROOM)}" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.2em" ${ROOM ? 'hidden' : ''}>
+    <input type="text" id="nameIn" maxlength="16" placeholder="Ім'я" value="${esc(saved)}" autocomplete="off">
+    <button class="primary wide" id="joinBtn">Увійти</button>`;
+  const go = async () => {
+    const name = $('#nameIn').value.trim();
+    const code = $('#codeIn').value.trim().toUpperCase().replace(/[^A-Z]/g, '');
+    if (code.length !== 4) { $('#codeIn').hidden = false; return $('#codeIn').focus(); }
+    if (!name) return $('#nameIn').focus();
+    ROOM = code;
+    const r = await api('join', { name });
+    if (r.error) return joinScreen(r.error, !!r.noRoom);
+    myId = r.id;
+    ls.set('spy_id', myId); ls.set('spy_room', ROOM); ls.set('spy_name', name);
+    lastKey = ''; connect();
+  };
+  $('#joinBtn').onclick = go;
+  $('#nameIn').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+
+// ---------- роль ----------
+function dossier(open) {
+  const m = st.me;
+  const body = m.isSpy
+    ? `<div class="lbl">Роль</div><div class="val spy">ТИ — ШПИГУН</div><div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div><p>Локацію ти не знаєш. Вдавай, що знаєш, і вгадай її.</p>`
+    : `<div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div><div class="lbl">Локація</div><div class="val">${esc(m.location)}</div><p>Серед вас є шпигун, який знає лише тему.</p>`;
+  return `<div class="dossier ${open ? 'open' : ''}" id="dos">${body}
+    <div class="cover"><div><span class="st">ЦІЛКОМ ТАЄМНО</span><br>Натисни й тримай, щоб прочитати</div></div></div>`;
+}
+function holdToReveal(el) {
+  if (!el) return;
+  const on = e => { e.preventDefault(); el.classList.add('open'); };
+  const offF = () => el.classList.remove('open');
+  el.addEventListener('pointerdown', on); el.addEventListener('pointerup', offF);
+  el.addEventListener('pointerleave', offF); el.addEventListener('pointercancel', offF);
+  el.addEventListener('contextmenu', e => e.preventDefault());
+}
+$('#rolebtn').onclick = () => {
+  const o = $('#overlay');
+  o.innerHTML = dossier(false) + '';
+  o.hidden = false;
+  holdToReveal(o.querySelector('.dossier'));
+  o.onclick = e => { if (e.target === o) o.hidden = true; };
+};
+
+// ---------- малювання ----------
+function setupCanvas() {
+  const cv = $('#cv'); if (!cv) return null;
+  const W = 480; cv.width = W; cv.height = W;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, W);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  let color = '#1d1b18', size = 6, down = false, last = null;
+  const hist = [];
+  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * W / r.height]; };
+  cv.onpointerdown = e => {
+    cv.setPointerCapture(e.pointerId);
+    hist.push(g.getImageData(0, 0, W, W)); if (hist.length > 25) hist.shift();
+    down = true; last = pos(e);
+    g.fillStyle = color; g.beginPath(); g.arc(last[0], last[1], size / 2, 0, 7); g.fill();
+  };
+  cv.onpointermove = e => {
+    if (!down) return;
+    const p = pos(e);
+    g.strokeStyle = color; g.lineWidth = size;
+    g.beginPath(); g.moveTo(last[0], last[1]); g.lineTo(p[0], p[1]); g.stroke();
+    last = p;
+  };
+  cv.onpointerup = cv.onpointercancel = () => { down = false; };
+  document.querySelectorAll('.sw').forEach(b => b.onclick = () => {
+    color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b));
+  });
+  document.querySelectorAll('.sz').forEach(b => b.onclick = () => {
+    size = +b.dataset.s; document.querySelectorAll('.sz').forEach(x => x.classList.toggle('on', x === b));
+  });
+  $('#undo').onclick = () => { const h = hist.pop(); if (h) g.putImageData(h, 0, 0); };
+  $('#clear').onclick = () => { hist.push(g.getImageData(0, 0, W, W)); g.fillStyle = '#fff'; g.fillRect(0, 0, W, W); };
+  return { data: () => cv.toDataURL('image/jpeg', .75) };
+}
+async function sendDrawing() {
+  if (drawSent || !canvasApi) return;
+  drawSent = true;
+  await api('draw', { img: canvasApi.data() });
+}
+
+// ---------- екрани ----------
+const waiting = html => `<div class="waiting">${html}</div>`;
+function screen() {
+  const s = st, m = s.me, cur = s.order ? s.order[s.idx] : null;
+  const out = m.alive ? '' : `<div class="banner">Тебе вигнали. Спостерігай і не підказуй 🤐</div>`;
+  switch (s.phase) {
+    case 'lobby':
+      return `<h1>Ти в грі</h1><p class="muted">Чекаємо, поки на ноутбуці натиснуть «Почати гру».</p>
+        ${waiting(`Гравців: <b>${s.players.filter(p => p.online).length}</b>`)}
+        <button class="wide" onclick="api('leave').then(()=>{ls.set('spy_id',null);myId=null;connect()})">Вийти / змінити ім'я</button>`;
+    case 'roles':
+      return `<h1>Твоя роль</h1>${dossier(false)}
+        ${m.mine ? waiting('Чекаємо інших…') : `<button class="primary wide" onclick="api('ready')">Я запам'ятав</button>`}`;
+    case 'names':
+      if (m.mine) return waiting(`Твій персонаж: <b>${esc(m.mine)}</b><br>Чекаємо інших…`);
+      return `<h1>Ім'я персонажа</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Вигадай ім'я, яке пасує до теми «${esc(s.theme)}», щоб не спалитися.` : `Натякни, що знаєш локацію, але так, щоб шпигун не здогадався.`}</p>
+        <input type="text" id="txt" maxlength="40" placeholder="Напр.: Охоронець Степан" autocomplete="off">
+        <button class="primary wide" id="send">Готово</button>`;
+    case 'namesReveal': case 'drawReveal': case 'wordsReveal': case 'itemsDone':
+      return out + waiting('Дивіться на екран ноутбука 👀');
+    case 'questions':
+      if (cur === m.id && s.stage === 'pick') return `<h1>Твоє питання</h1><p class="muted">Кого питаєш?</p>
+        <div class="list">${s.players.filter(p => p.alive && p.id !== m.id).map(p => `<button class="opt" onclick="api('target',{target:'${p.id}'})">${esc(p.name)} <span class="muted">${esc(p.char)}</span></button>`).join('')}</div>`;
+      if (cur === m.id) return `<h1>Питай: ${esc(P(s.target).name)}</h1><p class="muted">Постав питання вголос. Коли відповіли — тисни.</p>
+        <button class="primary wide" onclick="api('asked')">Відповіли ✓</button>`;
+      if (s.target === m.id && s.stage === 'ask') return `<h1>${esc(P(cur).name)} питає тебе</h1>` + waiting('Відповідай уголос');
+      return out + waiting(s.stage === 'pick' ? `<b>${esc(P(cur).name)}</b> обирає, кого спитати` : `<b>${esc(P(cur).name)}</b> питає <b>${esc(P(s.target).name)}</b>`);
+    case 'drawing':
+      if (!m.alive) return out + waiting('Інші малюють…');
+      if (m.mine || drawSent) return waiting('Малюнок надіслано. Чекаємо інших…');
+      return `<h1>Намалюй локацію</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун — малюй щось, що пасує до теми «${esc(s.theme)}».` : 'Так, щоб свої впізнали, а шпигун — ні.'}</p>
+        <div class="canvaswrap"><canvas id="cv"></canvas></div>
+        <div class="tools">
+          ${['#1d1b18', '#d2442f', '#2f6fd2', '#2f9d55', '#e8b62c', '#8a5a2b', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}
+        </div>
+        <div class="tools">
+          <button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button>
+          <span class="grow"></span><button class="sz" id="undo">↶</button><button class="sz" id="clear">Стерти</button>
+        </div>
+        <button class="primary wide" id="send">Надіслати малюнок</button>`;
+    case 'items': {
+      const mine = s.items.find(it => it.by === cur);
+      if (cur === m.id && s.stage === 'pick') return `<h1>Обери предмет</h1><p class="muted">Потім поясниш уголос, як він пов'язаний з локацією.</p>
+        <div class="items">${s.items.map((it, i) => `<button class="item ${it.by ? 'taken' : ''}" ${it.by ? 'disabled' : ''} onclick="api('pick',{index:${i}})"><span class="e">${it.e}</span>${esc(it.n)}</button>`).join('')}</div>`;
+      if (cur === m.id) return `<div class="bigitem">${mine ? mine.e : ''}</div><h1 class="center">${mine ? esc(mine.n) : ''}</h1>
+        <p class="muted center">Поясни вголос, як це пов'язано з локацією.</p><button class="primary wide" onclick="api('explained')">Пояснив ✓</button>`;
+      return out + waiting(s.stage === 'pick' ? `<b>${esc(P(cur).name)}</b> обирає предмет` : `<b>${esc(P(cur).name)}</b> пояснює: ${mine ? mine.e + ' ' + esc(mine.n) : ''}`);
+    }
+    case 'vote': {
+      if (!m.alive) return out + waiting('Інші голосують…');
+      const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
+      return `${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1>Хто шпигун?</h1>
+        <div class="list">${cands.map(p => `<button class="opt ${m.vote === p.id ? 'sel' : ''}" onclick="api('vote',{target:'${p.id}'})">${esc(p.name)} <span>${esc(p.char)}</span></button>`).join('')}</div>
+        ${m.vote ? '<p class="muted center">Голос прийнято. Поки інші думають, можна змінити.</p>' : ''}`;
+    }
+    case 'voteResult': {
+      const r = s.res || {};
+      if (r.out === m.id) return `<h1>Тебе вигнали</h1>` + waiting(m.isSpy ? 'Зараз буде шанс назвати локацію!' : 'Дивіться на екран');
+      return waiting(r.out ? `Вигнали <b>${esc(P(r.out).name)}</b>` : 'Нікого не вигнали');
+    }
+    case 'guess':
+      if (m.isSpy) return `<h1>Твій шанс</h1>
+        <p class="muted">Назви локацію. Вгадаєш — перемога. Помилишся — програш. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.</p>
+        <input type="text" id="txt" maxlength="60" placeholder="Локація…" autocomplete="off">
+        <button class="primary wide" id="send">Вгадати</button>
+        <button class="wide" onclick="api('skip')">Не ризикувати</button>`;
+      return out + waiting('Шпигун вирішує, чи називати локацію…');
+    case 'verdict':
+      if (m.isSpy) return waiting(`Ти сказав «<b>${esc(s.guess)}</b>».<br>Мирні вирішують…`);
+      if (m.verdict !== null) return waiting(`Твоє рішення: <b>${m.verdict ? 'зарахувати' : 'не зараховувати'}</b>. Чекаємо інших…`);
+      return `<h1>Шпигун каже:</h1><div class="dossier open"><div class="lbl">Здогадка</div><div class="val">«${esc(s.guess)}»</div>
+        <div class="lbl">Правильна локація</div><div class="val">${esc(m.location)}</div></div>
+        <p class="muted">Чесно: це та сама локація?</p>
+        <div class="list"><button class="primary" onclick="api('verdict',{yes:true})">Так, вгадав</button><button onclick="api('verdict',{yes:false})">Ні, не вгадав</button></div>`;
+    case 'words':
+      if (!m.alive) return out + waiting('Інші пишуть слова…');
+      if (m.mine) return waiting(`Твоє слово: <b>${esc(m.mine)}</b>. Чекаємо інших…`);
+      return `${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1>Одне слово</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Слово має пасувати до теми «${esc(s.theme)}».` : 'Одне слово про локацію.'}</p>
+        <input type="text" id="txt" maxlength="24" placeholder="Слово" autocomplete="off">
+        <button class="primary wide" id="send">Готово</button>`;
+    case 'end': {
+      const e = s.end, spyWon = e.winner === 'spy';
+      const iWon = m.isSpy ? spyWon : !spyWon;
+      return `<h1 class="center">${iWon ? '🎉 Перемога!' : 'Поразка'}</h1>
+        <div class="dossier open"><div class="lbl">Локація</div><div class="val">${esc(e.location)}</div>
+        <div class="lbl">Шпигун</div><div class="val">${esc(P(e.spyId).name)}</div>
+        ${e.guess ? `<div class="lbl">Здогадка шпигуна</div><div class="val">«${esc(e.guess)}»</div>` : ''}</div>
+        ${waiting('Нова гра почнеться з ноутбука')}`;
+    }
+  }
+  return '';
+}
+
+function bindInputs() {
+  const btn = $('#send'), txt = $('#txt');
+  if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); if (btn) btn.onclick = sendDrawing; return; }
+  if (!btn || !txt) return;
+  const action = { names: 'name', words: 'word', guess: 'guess' }[st.phase];
+  const go = () => { const t = txt.value.trim(); if (t) { btn.disabled = true; api(action, { text: t }); } };
+  btn.onclick = go;
+  txt.onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+
+function render() {
+  if (!st) return;
+  if (!st.me) {
+    if (st.phase === 'lobby' || !myId) { if (lastKey !== 'join') joinScreen(myId && st.phase === 'lobby' ? '' : (st.phase !== 'lobby' ? 'Гра вже йде. Можна зайти, коли вона закінчиться.' : '')); }
+    else { lastKey = 'ingame'; $('#main').innerHTML = waiting('Гра вже йде. Можна зайти, коли вона закінчиться.'); }
+    return;
+  }
+  const m = st.me;
+  $('#me').textContent = m.name + (m.alive ? '' : ' (вибув)');
+  $('#rolebtn').hidden = st.phase === 'lobby' || st.phase === 'end' || (st.phase === 'roles' && !m.mine);
+  if (st.phase !== 'drawing') { drawSent = false; canvasApi = null; }
+  if (st.phase === 'lobby' || st.phase === 'end') $('#overlay').hidden = true;
+  const key = JSON.stringify([st.phase, st.stage, st.idx, st.target, st.voteNo, st.notice, st.cands, m.alive, m.vote, m.verdict, !!m.mine,
+    st.phase === 'items' ? st.items.map(i => i.by) : 0, st.phase === 'lobby' ? st.players.filter(p => p.online).length : 0, st.res]);
+  if (key !== lastKey) {
+    lastKey = key;
+    $('#main').innerHTML = screen();
+    if (st.phase === 'roles') holdToReveal($('#dos'));
+    bindInputs();
+  }
+  tick();
+}
+function tick() {
+  const l = left(), t = $('#timer');
+  t.textContent = l == null ? '' : `${Math.floor(l / 60)}:${String(l % 60).padStart(2, '0')}`;
+  t.classList.toggle('low', l != null && l <= 10);
+  if (st && st.phase === 'drawing' && st.me && st.me.alive && !st.me.mine && l != null && l <= 2) sendDrawing();
+}
+setInterval(tick, 250);
+
+if (!ROOM) joinScreen(); else if (myId) connect(); else { joinScreen(); connect(); }
+</script>
+</body>
+</html>
