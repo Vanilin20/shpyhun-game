@@ -547,7 +547,7 @@ function renderChat() {
   if (chatOpen && chatSeen !== last) { chatSeen = last; store.set(chatKey(), last); }
   const unread = list.filter(x => x.i > chatSeen && (!m || x.from !== m.id)).length;
   $('#chatBadge').hidden = !unread; $('#chatBadge').textContent = unread > 9 ? '9+' : unread;
-  if (chatHeard >= 0 && last > chatHeard && unread) buzz(30);
+  if (chatHeard >= 0 && last > chatHeard && list[list.length - 1].from !== (m && m.id)) { if (!chatOpen) buzz(30); Sound.chat(); }
   chatHeard = last;
   if (chatOpen && last !== chatDrawn) {
     const el = $('#chatList'), stick = chatDrawn < 0 || el.scrollHeight - el.scrollTop - el.clientHeight < 80;

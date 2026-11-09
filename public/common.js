@@ -72,10 +72,11 @@ async function postApi(body) {
 
 // ---------- таймер-кільце ----------
 const Timer = (() => {
-  let total = 0, lastEnds = 0, off = 0, ends = 0, lastSec = -1;
+  let total = 0, lastEnds = 0, off = 0, ends = 0, lastSec = -1, upDone = false;
   function set(st) {
     off = st.now - Date.now();
-    if (st.endsAt !== lastEnds) { lastEnds = st.endsAt; lastSec = -1; ends = st.endsAt; total = st.endsAt ? Math.max(1, st.endsAt - st.now) : 0; }
+    // фаза змінилась, коли старий таймер майже добіг кінця — значить, час вийшов
+    if (st.endsAt !== lastEnds) { if (lastSec >= 0 && lastSec <= 1 && !upDone) Sound.timeUp(); upDone = false; lastEnds = st.endsAt; lastSec = -1; ends = st.endsAt; total = st.endsAt ? Math.max(1, st.endsAt - st.now) : 0; }
   }
   function left() { return ends ? Math.max(0, ends - Date.now() - off) : null; }
   function html() { return `<div class="ring" id="ring" hidden><svg viewBox="0 0 46 46"><circle class="bg" cx="23" cy="23" r="20"/><circle class="fg" cx="23" cy="23" r="20" stroke-dasharray="125.66" stroke-dashoffset="0"/></svg><span></span></div>`; }
@@ -87,7 +88,7 @@ const Timer = (() => {
     const s = Math.ceil(l / 1000);
     if (s !== lastSec) {
       if (s > 0 && s <= 3 && lastSec > s) Sound.tick();
-      if (s === 0 && lastSec > 0) Sound.timeUp();
+      if (s === 0 && lastSec > 0 && !upDone) { upDone = true; Sound.timeUp(); }
       lastSec = s;
     }
     el.querySelector('span').textContent = s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : s;
@@ -252,28 +253,45 @@ function confetti() {
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
 // ---------- звуки (Web Audio, без файлів) ----------
 const Sound = (() => {
-  let ctx = null, on = store.get('spy_sound') !== false;
-  const unlock = () => { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch (e) {} };
-  addEventListener('pointerdown', unlock, { passive: true });
-  addEventListener('keydown', unlock);
+  let ctx = null, on = store.get('spy_sound') !== false, unlocked = false;
+  // iPhone: без цього Web Audio мовчить, коли увімкнено беззвучний режим
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  function unlock() {
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state !== 'running') ctx.resume();
+      if (!unlocked) {   // тихий звук прямо в жесті — так браузер «відкриває» аудіо
+        const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource();
+        src.buffer = b; src.connect(ctx.destination); src.start(0);
+        unlocked = true;
+      }
+    } catch (e) {}
+  }
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, unlock, { passive: true, capture: true });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); });
   function play(notes) {
-    if (!on || !ctx) return;
-    const t = ctx.currentTime;
-    for (const [f, at, dur, type = 'sine', vol = .16] of notes) {
+    if (!on) return;
+    if (!ctx) { unlock(); if (!ctx) return; }
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    const t = ctx.currentTime + .02;
+    for (const [f, at, dur, type = 'sine', vol = .35] of notes) {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type; o.frequency.value = f;
       g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + .015); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
-      o.connect(g).connect(ctx.destination); o.start(t + at); o.stop(t + at + dur + .05);
+      o.connect(g); g.connect(ctx.destination); o.start(t + at); o.stop(t + at + dur + .05);
     }
+    Sound.played = (Sound.played || 0) + 1;
   }
-  return {
+  const Sound = {
     get on() { return on; },
     toggle() { on = !on; store.set('spy_sound', on); unlock(); if (on) this.turn(); return on; },
-    turn() { play([[660, 0, .13], [990, .14, .22]]); },                                  // твоя черга
-    timeUp() { play([[520, 0, .2, 'triangle', .22], [350, .22, .38, 'triangle', .22]]); }, // час вийшов
-    tick() { play([[1200, 0, .05, 'sine', .07]]); },                                    // останні секунди
-    reveal() { play([[523, 0, .12], [659, .1, .12], [784, .2, .25]]); },                // показ результатів
+    turn() { play([[660, 0, .14, 'triangle'], [990, .15, .26, 'triangle']]); },                  // твоя черга
+    timeUp() { play([[520, 0, .22, 'square', .2], [350, .24, .42, 'square', .2]]); },           // час вийшов
+    tick() { play([[1200, 0, .06, 'sine', .2]]); },                                              // останні секунди
+    reveal() { play([[523, 0, .13, 'triangle'], [659, .11, .13, 'triangle'], [784, .22, .3, 'triangle']]); },
+    chat() { play([[880, 0, .08, 'sine', .2]]); },
   };
+  return Sound;
 })();
 
 function buzz(ms = 60) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
