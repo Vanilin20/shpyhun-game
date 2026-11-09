@@ -18,6 +18,22 @@ const MAX_PLAYERS = 12;
 const TWO_SPIES_FROM = 7;   // з такої кількості гравців — 2 шпигуни
 const MAX_ROOMS = 300;
 
+// Знімок кімнати (зашифрований) лежить у браузерах гравців. Якщо сервер перезапустився
+// (Render засинає або оновлюється), перший телефон, що під'єднався, відновлює кімнату з ним.
+const SNAP_KEY = crypto.createHash('sha256').update('shpyhun:' + (process.env.SNAP_KEY || process.env.RENDER_SERVICE_ID || 'local')).digest();
+function seal(obj) {
+  const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', SNAP_KEY, iv);
+  const enc = Buffer.concat([c.update(JSON.stringify(obj)), c.final()]);
+  return Buffer.concat([iv, c.getAuthTag(), enc]).toString('base64');
+}
+function unseal(str) {
+  try {
+    const b = Buffer.from(String(str), 'base64'), d = crypto.createDecipheriv('aes-256-gcm', SNAP_KEY, b.subarray(0, 12));
+    d.setAuthTag(b.subarray(12, 28));
+    return JSON.parse(Buffer.concat([d.update(b.subarray(28)), d.final()]).toString());
+  } catch (e) { return null; }
+}
+
 // тривалість етапів, секунди
 // дістає з тексту лише емодзі (з урахуванням складених, як 👨‍🍳 чи 🇺🇦)
 const seg = new Intl.Segmenter('uk', { granularity: 'grapheme' });
@@ -50,9 +66,9 @@ function newCode() {
   return c;
 }
 
-function createRoom(usedInit) {
+function createRoom(usedInit, code) {
   const room = {
-    code: newCode(), hostKey: rid(16), hostId: null,
+    code: code || newCode(), hostKey: rid(16), hostId: null,
     conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
   };
 
@@ -418,8 +434,31 @@ function createRoom(usedInit) {
     } else v.me = null;
     return v;
   }
-  const send = c => c.res.write('data: ' + JSON.stringify(view(c.token, c.host)) + '\n\n');
-  const broadcast = () => { for (const c of room.conns) { try { send(c); } catch (e) {} } };
+  // ---------- знімок для відновлення після перезапуску сервера ----------
+  function snapshot() {
+    const s = { ...S };
+    if (s.phase === 'drawing') s.sub = {};
+    delete s.drawings;                                   // малюнки важкі — їх не зберігаємо
+    return { code: room.code, hostKey: room.hostKey, hostId: room.hostId, players, S: s, used: [...used], lastTheme, t: Date.now() };
+  }
+  const TIMEOUT = {
+    roles: toNames, names: revealNames, namesReveal: toQuestions, questions: nextAsk,
+    drawing: revealDrawings, drawReveal: nextExtra, items: itemsTimeout, itemsDone: nextExtra,
+    emoji: revealEmoji, emojiReveal: () => toVote(), vote: tally, voteResult: toGuess,
+    guess: afterGuess, verdict: finishVerdict, words: revealWords, wordsReveal: () => toVote(),
+  };
+  function restore(d) {
+    room.hostKey = d.hostKey; room.hostId = d.hostId; lastTheme = d.lastTheme;
+    players = d.players; S = d.S;
+    if (S.phase === 'drawReveal') S.drawings = {};
+    const fn = TIMEOUT[S.phase];
+    if (fn && S.endsAt) setTimer(Math.max(15, (S.endsAt - d.t) / 1000 + 10), fn);   // +10 с на перепідключення
+    else S.endsAt = 0;
+  }
+  let snapCache = '', snapAt = 0;
+  const snap = () => { if (Date.now() - snapAt > 300) { snapCache = seal(snapshot()); snapAt = Date.now(); } return snapCache; };
+  const send = c => { const v = view(c.token, c.host); v.snap = snap(); c.res.write('data: ' + JSON.stringify(v) + '\n\n'); };
+  const broadcast = () => { snapAt = 0; for (const c of room.conns) { try { send(c); } catch (e) {} } };
 
   // якщо ведучий-гравець зник більш ніж на 20 с — ведучим стає наступний гравець онлайн
   function checkHost() {
@@ -433,7 +472,7 @@ function createRoom(usedInit) {
   }
 
   Object.assign(room, {
-    handle, view, send, broadcast, isOnline, byToken,
+    handle, view, send, broadcast, isOnline, byToken, restore, snap,
     tokenId: t => { const p = byToken(t); return p ? p.id : ''; },
     checkHost, stop: () => clearTimeout(timer),
   });
@@ -504,7 +543,7 @@ const server = http.createServer((req, res) => {
     room.lastActive = Date.now();
     const pid = room.tokenId(q('t'));
     if (pid) { const was = room.isOnline(pid); room.polled.set(pid, Date.now()); if (!was) setTimeout(room.broadcast, 0); }
-    return json(res, room.view(q('t'), q('key') === room.hostKey));
+    return json(res, { ...room.view(q('t'), q('key') === room.hostKey), snap: room.snap() });
   }
 
   if (req.method === 'GET' && u.pathname === '/exists') {
@@ -517,6 +556,15 @@ const server = http.createServer((req, res) => {
     req.on('data', d => { body += d; if (body.length > 1e6) req.destroy(); });
     req.on('end', () => {
       let b; try { b = JSON.parse(body || '{}'); } catch (e) { return json(res, { error: 'Помилка запиту' }); }
+      if (b.action === 'restore') {
+        if (getRoom(b.room)) return json(res, { ok: true });
+        const d = unseal(b.snap);
+        if (!d || d.code !== String(b.room || '').toUpperCase() || Date.now() - d.t > 3 * 3600e3) return json(res, { error: 'Не вдалося відновити кімнату', noRoom: true });
+        const r = createRoom(d.used, d.code);
+        try { r.restore(d); } catch (e) { console.error(e); rooms.delete(d.code); return json(res, { error: 'Не вдалося відновити кімнату', noRoom: true }); }
+        console.log('Кімнату відновлено:', d.code);
+        return json(res, { ok: true });
+      }
       if (b.action === 'create') {
         if (rooms.size >= MAX_ROOMS) return json(res, { error: 'Сервер переповнений, спробуйте пізніше' });
         const r = createRoom(b.used);

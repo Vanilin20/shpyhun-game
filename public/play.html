@@ -66,7 +66,7 @@ function enter() {
 function leave() {
   if (st && !['lobby', 'end'].includes(st.phase) && !confirm('Вийти з гри? Ти вибуваєш із цієї партії.' + (st.amHost ? ' Ведучим стане інший гравець.' : ''))) return;
   api('leave');
-  if (live) live.stop(); live = null;
+  if (live) { live.forget(); live.stop(); } live = null;
   store.set('spy_session', null); SES = null; st = null;
   history.replaceState(null, '', '/');
   home();

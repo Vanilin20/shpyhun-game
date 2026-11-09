@@ -332,3 +332,6 @@ details.rules b { color: var(--fg); }
 .emo-row span{display:grid;place-items:center;aspect-ratio:1;font-size:clamp(26px,9vw,40px);line-height:1;background:rgba(35,29,20,.07);border-radius:12px;overflow:hidden}
 .tv .emo-row span{font-size:46px}
 .val.emo,.emo-slots span{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+
+/* сервер перезапускається — плашка зверху */
+body.reconnecting::before{content:"Відновлюємо зв'язок із сервером…";position:fixed;z-index:999;left:50%;top:10px;transform:translateX(-50%);background:var(--gold);color:#1a1408;font:700 13px var(--body);padding:8px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}

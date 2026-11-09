@@ -18,28 +18,49 @@ function av(p, cls = '') {
 
 // ---------- зв'язок із сервером: SSE, а якщо проксі його гальмує — опитування ----------
 function Live({ room, token = '', key = '', onState, onNoRoom }) {
-  let es = null, poll = null, lastAct = 0, got = false, startedAt = Date.now(), dead = false;
+  let es = null, poll = null, lastAct = 0, got = false, startedAt = Date.now(), dead = false, restoring = false, tries = 0;
   const qs = `room=${encodeURIComponent(room)}&t=${encodeURIComponent(token)}&key=${encodeURIComponent(key)}`;
+  const SK = 'spy_snap_' + String(room).toUpperCase();
+  const lost = on => document.body.classList.toggle('reconnecting', on);
   const handle = v => {
-    got = true; lastAct = Date.now();
-    if (v.noRoom) { stop(); onNoRoom && onNoRoom(); return; }
+    got = true; lastAct = Date.now(); lost(false);
+    if (v.noRoom) return noRoom();
+    if (v.snap) { try { localStorage.setItem(SK, v.snap); } catch (e) {} delete v.snap; }
+    tries = 0;
     onState(v);
   };
+  // кімнати нема: якщо є знімок — сервер, мабуть, перезапустився; відновлюємо
+  function noRoom() {
+    let snap = null; try { snap = localStorage.getItem(SK); } catch (e) {}
+    if (!snap || tries >= 4) { try { localStorage.removeItem(SK); } catch (e) {} stop(); onNoRoom && onNoRoom(); return; }
+    if (restoring) return;
+    restoring = true; tries++; lost(true);
+    if (es) { es.close(); es = null; }
+    postApi({ action: 'restore', room, snap }).then(r => {
+      restoring = false;
+      if (r && r.noRoom) { tries = 99; return noRoom(); }
+      setTimeout(() => { if (!dead && !poll) open(); }, r && r.ok ? 0 : 3000);
+    });
+  }
   const pollOnce = () => fetch('/state?' + qs, { cache: 'no-store' }).then(r => r.json()).then(handle).catch(() => {});
   function startPoll() { if (es) { es.close(); es = null; } if (!poll) { poll = setInterval(pollOnce, 1500); pollOnce(); } }
   function open() {
     if (dead) return;
     es = new EventSource('/events?' + qs);
     es.onmessage = e => handle(JSON.parse(e.data));
-    es.addEventListener('ping', () => { lastAct = Date.now(); });
+    es.addEventListener('ping', () => { lastAct = Date.now(); lost(false); });
   }
   const watchdog = setInterval(() => {
-    if (poll || dead) return;
+    if (dead) return;
+    if (got && Date.now() - lastAct > 20000) lost(true);
+    if (poll) return;
     if ((!got && Date.now() - startedAt > 6000) || (got && Date.now() - lastAct > 40000)) startPoll();
   }, 2000);
-  function stop() { dead = true; if (es) es.close(); if (poll) clearInterval(poll); clearInterval(watchdog); }
+  // Render присипляє сервер, якщо до нього довго ніхто не звертається — легенько «будимо»
+  const keepAwake = setInterval(() => fetch('/exists?room=' + encodeURIComponent(room), { cache: 'no-store' }).catch(() => {}), 4 * 60e3);
+  function stop() { dead = true; lost(false); if (es) es.close(); if (poll) clearInterval(poll); clearInterval(watchdog); clearInterval(keepAwake); }
   open();
-  return { stop, refresh: () => { if (poll) pollOnce(); } };
+  return { stop, refresh: () => { if (poll) pollOnce(); }, forget: () => { try { localStorage.removeItem(SK); } catch (e) {} } };
 }
 
 async function postApi(body) {
