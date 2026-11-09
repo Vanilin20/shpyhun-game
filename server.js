@@ -154,19 +154,23 @@ function createRoom(usedInit, code) {
   // Додаткові раунди: щогри випадково 2 різні з увімкнених — один після імен, другий перед голосуванням.
   // Раунди з минулої партії по змозі не повторюються.
   const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes'];
-  // вага раунду для теми (THEME_FIT): підходящі випадають частіше, вага 0 — ніколи;
-  // раунди з минулої партії — у 4 рази рідше
+  // вага раунду для теми (THEME_FIT): підходящі випадають частіше, вага 0 — ніколи.
+  // Раунди минулої партії не повторюються, поки є з чого обрати інші.
   function pickRounds() {
     const on = ROUNDS.filter(k => room.settings[k]);
     const fit = (THEME_FIT[S.theme] || ['', {}])[1];
-    let pool = on.map(k => ({ k, w: (k in fit ? fit[k] : 1) * (room.lastRounds.includes(k) ? .25 : 1) })).filter(x => x.w > 0);
-    if (!pool.length) pool = on.map(k => ({ k, w: 1 }));   // ведучий лишив тільки непідходящі — граємо їх
-    const pick = [];
-    while (pick.length < 2 && pool.length) {
-      let r = Math.random() * pool.reduce((a, x) => a + x.w, 0);
-      const i = Math.max(0, pool.findIndex(x => (r -= x.w) < 0));
-      pick.push(pool.splice(i, 1)[0].k);
-    }
+    const weighted = list => list.map(k => ({ k, w: k in fit ? fit[k] : 1 })).filter(x => x.w > 0);
+    const draw = (pool, n) => { const out = []; pool = pool.slice();
+      while (out.length < n && pool.length) {
+        let r = Math.random() * pool.reduce((a, x) => a + x.w, 0);
+        const i = Math.max(0, pool.findIndex(x => (r -= x.w) < 0));
+        out.push(pool.splice(i, 1)[0].k);
+      }
+      return out; };
+    // спершу свіжі підходящі, потім (якщо не вистачило) — підходящі з минулої партії, і лише в крайньому разі — непідходящі
+    const pick = draw(weighted(on.filter(k => !room.lastRounds.includes(k))), 2);
+    if (pick.length < 2) pick.push(...draw(weighted(on.filter(k => room.lastRounds.includes(k))), 2 - pick.length));
+    if (pick.length < 2) pick.push(...draw(on.filter(k => !pick.includes(k)).map(k => ({ k, w: 1 })), 2 - pick.length));
     room.lastRounds = pick;
     return pick.length === 1 ? [null, pick[0]] : pick;   // один раунд — ставимо перед голосуванням
   }
