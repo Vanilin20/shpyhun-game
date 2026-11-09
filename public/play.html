@@ -79,8 +79,9 @@ const RULES = `<details class="rules"><summary>Як грати</summary><ol>
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
   <li><b>Імена:</b> вигадай персонажа з натяком на локацію.</li>
   <li><b>Допит:</b> по черзі питаєте одне одного вголос — 2 хвилини на питання.</li>
-  <li><b>Малюнки й предмети:</b> намалюй локацію, а потім обери предмет і до 2 хвилин розповідай, як він з нею пов'язаний (порядок чергується).</li>
-  <li><b>Голосування.</b> Після нього шпигун може назвати локацію: вгадав — переміг, помилився — програв.</li>
+  <li><b>Малюнок або предмет</b> (по черзі між партіями): намалюй локацію або обери предмет і до 2 хвилин розповідай, як він з нею пов'язаний.</li>
+  <li><b>Бліц:</b> 3 питання, на кожне по черзі відповідає кожен — уголос, 30 секунд.</li>
+  <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Мирним треба вигнати обох.</li></ol></details>`;
 
@@ -303,6 +304,14 @@ function screenHtml() {
     }
     case 'itemsDone':
       return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
+    case 'blitz': {
+      const head = R.phaseTag(s, `Бліц · питання ${s.qi + 1} з ${s.qs.length}`);
+      const q = `<div class="paper" style="--rot:-1deg"><div class="lbl">Питання ${s.qi + 1}</div><div class="val">${esc(s.qs[s.qi])}</div></div>`;
+      if (cur === m.id) return `${head}${q}<h1 class="center">Твоя черга — відповідай уголос</h1>
+        <p class="muted center">${m.isSpy ? 'Ти шпигун — відповідай так, щоб пасувало до будь-якого місця з теми.' : 'Коротко й так, щоб шпигун не здогадався.'}</p>
+        <button class="btn ok wide" data-act="answered">Відповів ✓</button>${R.order(s)}`;
+      return `${head}${outBanner()}${q}<p class="muted center" style="display:flex;align-items:center;justify-content:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(dn(P(cur)))}</b> відповідає</p>${R.order(s)}`;
+    }
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
@@ -363,7 +372,7 @@ function hostbarHtml() {
   if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
   if (s.phase === 'verdict') return '';   // рішення мирних не пропускається
-  const label = s.phase === 'questions' || s.phase === 'items' ? 'Пропустити хід' : 'Не чекати';
+  const label = ['questions', 'items', 'blitz'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
   return `${tag}<button class="btn ghost small" data-host="next">${label}</button>`;
 }
 
@@ -378,7 +387,7 @@ function render() {
   if (s.phase !== 'drawing') { drawSent = false; canvasApi = null; }
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine,
     s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => i.by) : 0, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
@@ -401,15 +410,15 @@ function render() {
   }
   const hb = hostbarHtml();
   $('#hostbar').hidden = !hb;
-  const hk = hb + [s.game, s.phase, s.stage, s.idx].join();   // новий хід — кнопка знову активна
+  const hk = hb + [s.game, s.phase, s.stage, s.qi, s.idx].join();   // новий хід — кнопка знову активна
   if (hb && $('#hostbar .inner').dataset.k !== hk) {
     $('#hostbar .inner').dataset.k = hk; $('#hostbar .inner').innerHTML = hb;
     $('#hostbar').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.host); });
   }
   // вібрація, коли твій хід
   const cur = s.order ? s.order[s.idx] : null;
-  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (s.phase === 'items' && cur === m.id) || (s.phase === 'guess' && m.isSpy);
-  const tk = turn ? [s.game, s.phase, s.idx, s.stage].join() : '';
+  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (['items', 'blitz'].includes(s.phase) && cur === m.id) || (s.phase === 'guess' && m.isSpy);
+  const tk = turn ? [s.game, s.phase, s.qi, s.idx, s.stage].join() : '';
   if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); }
   Timer.tick();
 }

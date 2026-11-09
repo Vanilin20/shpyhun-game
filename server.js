@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { exec } = require('child_process');
-const { THEMES, ITEMS } = require('./data');
+const { THEMES, ITEMS, BLITZ } = require('./data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
@@ -23,7 +23,7 @@ const SEC = {
   roles: 45, names: 75,
   pick: 25, question: 120,            // вибір, кого спитати / питання й відповідь
   drawing: 70, itemPick: 25, explain: 120,
-  vote: 45, guess: 25, verdict: 45, words: 40,
+  vote: 45, guess: 30, verdict: 45, words: 40, blitz: 30,   // blitz — на одну відповідь у бліці
   // показ результатів (ведучий може натиснути «Далі» раніше)
   namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25,
 };
@@ -114,15 +114,31 @@ function createRoom(usedInit) {
   }
   function nextAsk() { S.idx++; if (S.idx >= S.order.length) toExtra(); else startAsk(); }
 
-  // після допиту — обидва раунди: малювання й предмети; порядок чергується між партіями
-  let drawFirst = Math.random() < .5;
+  // після допиту — малювання або предмети, по черзі між партіями; потім бліц
+  let drawNext = Math.random() < .5;
   function toExtra() {
-    drawFirst = !drawFirst;
-    S.extras = drawFirst ? ['drawing', 'items'] : ['items', 'drawing'];
+    S.extras = [drawNext ? 'drawing' : 'items'];
+    drawNext = !drawNext;
     S.extraIdx = 0;
     startExtra();
   }
-  function nextExtra() { S.extraIdx++; if (S.extraIdx < S.extras.length) startExtra(); else toVote(); }
+  function nextExtra() { S.extraIdx++; if (S.extraIdx < S.extras.length) startExtra(); else toBlitz(); }
+
+  // бліц: 3 питання, на кожне по черзі відповідають усі (уголос)
+  let lastQs = [];
+  function toBlitz() {
+    const pool = BLITZ.filter(q => !lastQs.includes(q));
+    S.qs = shuffle(pool.length >= 3 ? pool : BLITZ).slice(0, 3);
+    lastQs = lastQs.concat(S.qs).slice(-15);
+    S.phase = 'blitz'; S.qi = 0; S.order = shuffle(alive().map(p => p.id)); S.idx = 0;
+    setTimer(SEC.blitz, nextBlitz);
+  }
+  function nextBlitz() {
+    S.idx++;
+    if (S.idx >= S.order.length) { S.idx = 0; S.qi++; }
+    if (S.qi >= S.qs.length) return toVote();
+    setTimer(SEC.blitz, nextBlitz);
+  }
   function startExtra() {
     S.extra = S.extras[S.extraIdx];
     if (S.extra === 'drawing') { S.phase = 'drawing'; S.sub = {}; setTimer(SEC.drawing, revealDrawings); }
@@ -211,6 +227,7 @@ function createRoom(usedInit) {
       case 'drawReveal': return nextExtra();
       case 'items': return itemsTimeout();
       case 'itemsDone': return nextExtra();
+      case 'blitz': return nextBlitz();
       case 'vote': return tally();
       case 'voteResult': return toGuess();
       case 'guess': return afterGuess();
@@ -278,6 +295,9 @@ function createRoom(usedInit) {
           if (it && !it.by) { it.by = id; startExplain(); }
         }
         return {};
+      case 'answered':
+        if (S.phase === 'blitz' && S.order[S.idx] === id) nextBlitz();
+        return {};
       case 'explained':
         if (S.phase === 'items' && S.stage === 'explain' && S.order[S.idx] === id) nextItem();
         return {};
@@ -340,7 +360,8 @@ function createRoom(usedInit) {
     if (['roles', 'names', 'drawing', 'words'].includes(ph)) v.done = Object.keys(S.sub || {});
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
     if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
-    if (ph === 'questions' || ph === 'items') { v.order = S.order; v.idx = S.idx; v.stage = S.stage; v.target = S.target || null; }
+    if (ph === 'blitz') { v.qs = S.qs; v.qi = S.qi; }
+    if (ph === 'questions' || ph === 'items' || ph === 'blitz') { v.order = S.order; v.idx = S.idx; v.stage = S.stage; v.target = S.target || null; }
     if (ph === 'items' || ph === 'itemsDone') v.items = S.items;
     if (ph === 'drawReveal') v.drawings = S.drawings;
     if (ph === 'voteResult') v.res = S.res;

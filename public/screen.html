@@ -110,6 +110,9 @@ function view() {
         ${it ? '<p class="muted" style="font-size:20px">Як це пов\'язано з локацією? До 2 хвилин.</p>' : ''}${R.items(s, { current: it ? s.items.indexOf(it) : -1 })}`;
     }
     case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
+    case 'blitz': return `${R.phaseTag(s, `Бліц · питання ${s.qi + 1} з ${s.qs.length}`)}
+      <div class="paper" style="--rot:-1.5deg;max-width:900px;width:100%;margin:0 auto"><div class="lbl">Питання ${s.qi + 1}</div><div class="val" style="font-size:44px">${esc(s.qs[s.qi])}</div></div>
+      <div class="center" style="display:flex;align-items:center;justify-content:center;gap:12px;font-size:26px">${av(P(cur), 'lg')}<b>${esc(dn(P(cur)))}</b> відповідає</div>${R.order(s)}`;
     case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
       <span class="stamp big">Голосування${s.voteNo === 2 ? ' №2' : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
     case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
@@ -137,14 +140,14 @@ function actions() {
   if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
   if (st.phase === 'verdict') return '';
-  return `<button class="btn ghost small" data-host="next">${st.phase === 'questions' || st.phase === 'items' ? 'Пропустити хід' : 'Не чекати'}</button>`;
+  return `<button class="btn ghost small" data-host="next">${['questions', 'items', 'blitz'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
 }
 
 function render() {
   const s = st;
   $('#codeChip').hidden = false; $('#codeChip').textContent = 'КОД ' + s.code;
   $('#themeChip').hidden = !s.theme; $('#themeChip').textContent = s.theme || '';
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.idx, s.target, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost,
     s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0]);
   if (key !== lastKey) {
     lastKey = key;

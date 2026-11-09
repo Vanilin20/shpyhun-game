@@ -86,7 +86,7 @@ const REASON = {
 };
 const PHASE_NAME = {
   roles: 'Досьє', names: 'Імена', namesReveal: 'Імена', questions: 'Допит', drawing: 'Малювання', drawReveal: 'Галерея',
-  items: 'Предмети', itemsDone: 'Предмети', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
+  items: 'Предмети', itemsDone: 'Предмети', blitz: 'Бліц', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
   words: 'Одне слово', wordsReveal: 'Слова', end: 'Справу закрито',
 };
 const rot = i => `--rot:${[-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9][i % 8]}deg`;
