@@ -70,7 +70,8 @@ function createRoom(usedInit, code) {
   const room = {
     code: code || newCode(), hostKey: rid(16), hostId: null,
     conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
-    settings: { drawing: true, items: true, emoji: true, pace: 1 },   // налаштування ведучого в лобі
+    settings: { drawing: true, items: true, emoji: true, pace: 1, remote: false },   // налаштування ведучого в лобі
+    chat: [], chatSeq: 0, chatAt: new Map(),   // чат кімнати (останні 80 повідомлень)
   };
   // темп впливає на ігрові етапи, а не на показ результатів і не на 30 с шпигуна
   const PACED = ['names', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote'];
@@ -130,7 +131,7 @@ function createRoom(usedInit, code) {
 
   // допит по колу: кожен питає наступного, останній — першого
   function toQuestions() { S.phase = 'questions'; S.order = shuffle(alive().map(p => p.id)); S.idx = 0; startAsk(); }
-  function startAsk() { S.stage = 'ask'; S.target = S.order[(S.idx + 1) % S.order.length]; setTimer(T('question'), nextAsk); }
+  function startAsk() { S.qa = { q: '', a: '' }; S.stage = 'ask'; S.target = S.order[(S.idx + 1) % S.order.length]; setTimer(T('question'), nextAsk); }
   function questionsTimeout() { nextAsk(); }
   function nextAsk() { S.idx++; if (S.idx >= S.order.length) toExtra(); else startAsk(); }
 
@@ -335,6 +336,33 @@ function createRoom(usedInit, code) {
         if (S.phase === 'names' && p && t) { S.sub[id] = t; if (players.every(x => x.left || S.sub[x.id])) revealNames(); }
         return {};
       }
+      // ---- чат і текстові відповіді (гра на відстані) ----
+      case 'chat': {
+        const t = String(b.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+        if (!p || !t) return {};
+        if (Date.now() - (room.chatAt.get(id) || 0) < 700) return { error: 'Не так швидко 🙂' };
+        room.chatAt.set(id, Date.now());
+        const showChar = !['lobby', 'roles', 'names'].includes(S.phase) && p.char;
+        room.chat.push({ i: ++room.chatSeq, from: id, who: showChar ? p.char : p.name, text: t, t: Date.now() });
+        if (room.chat.length > 80) room.chat.splice(0, room.chat.length - 80);
+        return {};
+      }
+      case 'askText': {   // той, хто питає, пише питання
+        const t = String(b.text || '').trim().slice(0, 200);
+        if (S.phase === 'questions' && S.order[S.idx] === id && t && !S.qa.q) S.qa.q = t;
+        return {};
+      }
+      case 'answerText': {   // той, кого питають, пише відповідь — потім 8 с, щоб усі прочитали
+        const t = String(b.text || '').trim().slice(0, 200);
+        if (S.phase === 'questions' && S.target === id && S.qa.q && t && !S.qa.a) { S.qa.a = t; setTimer(8, nextAsk); }
+        return {};
+      }
+      case 'explainText': {   // пояснення до предмета текстом
+        const t = String(b.text || '').trim().slice(0, 240);
+        const it = S.phase === 'items' && S.stage === 'explain' && S.order[S.idx] === id && S.items.find(x => x.by === id);
+        if (it && t && !it.txt) { it.txt = t; setTimer(8, nextItem); }
+        return {};
+      }
       case 'asked':
         if (S.phase === 'questions' && S.stage === 'ask' && S.order[S.idx] === id) nextAsk();
         return {};
@@ -394,7 +422,7 @@ function createRoom(usedInit, code) {
         if (b.action === 'settings') {
           if (S.phase !== 'lobby' && S.phase !== 'end') return { error: 'Налаштування — лише між партіями' };
           const n = b.settings || {}, st = room.settings;
-          for (const k of ['drawing', 'items', 'emoji']) if (typeof n[k] === 'boolean') st[k] = n[k];
+          for (const k of ['drawing', 'items', 'emoji', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
           if ([0.67, 1, 1.5].includes(n.pace)) st.pace = n.pace;
           return {};
         }
@@ -427,6 +455,8 @@ function createRoom(usedInit, code) {
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
     if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
     if (ph === 'emojiReveal') v.emojis = S.emojis;
+    if (ph === 'questions') v.qa = S.qa || { q: '', a: '' };
+    v.chat = room.chat;
     if (ph === 'questions' || ph === 'items') { v.order = S.order; v.idx = S.idx; v.stage = S.stage; v.target = S.target || null; }
     if (ph === 'items' || ph === 'itemsDone') v.items = S.items;
     if (ph === 'drawReveal') v.drawings = S.drawings;
@@ -462,7 +492,7 @@ function createRoom(usedInit, code) {
     const s = { ...S };
     if (s.phase === 'drawing') s.sub = {};
     delete s.drawings;                                   // малюнки важкі — їх не зберігаємо
-    return { code: room.code, hostKey: room.hostKey, hostId: room.hostId, settings: room.settings, players, S: s, used: [...used], lastTheme, t: Date.now() };
+    return { code: room.code, hostKey: room.hostKey, hostId: room.hostId, settings: room.settings, chat: room.chat, chatSeq: room.chatSeq, players, S: s, used: [...used], lastTheme, t: Date.now() };
   }
   const TIMEOUT = {
     roles: toNames, names: revealNames, namesReveal: toQuestions, questions: nextAsk,
@@ -471,7 +501,7 @@ function createRoom(usedInit, code) {
     guess: afterGuess, verdict: finishVerdict, words: revealWords, wordsReveal: () => toVote(),
   };
   function restore(d) {
-    room.hostKey = d.hostKey; room.hostId = d.hostId; lastTheme = d.lastTheme; if (d.settings) room.settings = d.settings;
+    room.hostKey = d.hostKey; room.hostId = d.hostId; lastTheme = d.lastTheme; if (d.settings) room.settings = d.settings; if (d.chat) { room.chat = d.chat; room.chatSeq = d.chatSeq || 0; }
     players = d.players; S = d.S;
     if (S.phase === 'drawReveal') S.drawings = {};
     const fn = TIMEOUT[S.phase];

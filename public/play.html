@@ -18,12 +18,18 @@
   <span class="chip mono" id="codeChip"></span>
   <span class="chip theme" id="themeChip" hidden></span>
   <span class="grow"></span>
+  <button class="btn small" id="chatBtn" aria-label="Чат">💬<span class="badge" id="chatBadge" hidden></span></button>
   <button class="btn small" id="roleBtn" hidden aria-label="Моя роль">🕵️ Роль</button>
   <span id="ringSlot"></span>
 </header>
 <main class="wrap" id="main"></main>
 <div class="hostbar" id="hostbar" hidden><div class="inner"></div></div>
 <div class="overlay" id="overlay" hidden></div>
+<div class="chat" id="chat" hidden>
+  <div class="chat-head"><b>Чат кімнати</b><button class="btn small" id="chatClose" aria-label="Закрити">✕</button></div>
+  <div class="chat-list" id="chatList"></div>
+  <form class="chat-form" id="chatForm"><input type="text" id="chatIn" maxlength="200" placeholder="Повідомлення…" autocomplete="off"><button class="btn primary small" type="submit">➤</button></form>
+</div>
 <script src="/qrcode.js"></script>
 <script src="/common.js"></script>
 <script>
@@ -85,6 +91,7 @@ const RULES = `<details class="rules"><summary>Як грати</summary><ol>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Мирним треба вигнати обох.</li>
+  <li><b>Граєте не разом?</b> Ведучий вмикає «На відстані»: питання, відповіді й пояснення пишуться в грі, а для розмов є чат 💬.</li>
   <li><b>Рахунок:</b> перемога шпигуна — +2 кожному шпигуну, перемога мирних — +1 кожному мирному.</li></ol></details>`;
 
 function home(msg) {
@@ -303,6 +310,14 @@ function screenHtml() {
       return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': {
       const head = R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`);
+      if (s.settings.remote) {
+        const q = s.qa || {};
+        if (cur === m.id && !q.q) return `${head}${R.duel(s, m.id)}<h1 class="center">Твоє питання для ${esc(dn(P(s.target)))}</h1>
+          <textarea id="rtxt" maxlength="200" rows="3" placeholder="Напиши питання…"></textarea><button class="btn primary wide" id="rsend" data-a="askText">Запитати</button>${R.order(s)}`;
+        if (s.target === m.id && q.q && !q.a) return `${head}${R.duel(s, m.id)}${R.qa(s, true)}<h1 class="center">Твоя відповідь</h1>
+          <textarea id="rtxt" maxlength="200" rows="3" placeholder="Відповідай так, щоб шпигун не здогадався…"></textarea><button class="btn primary wide" id="rsend" data-a="answerText">Відповісти</button>${R.order(s)}`;
+        return `${head}${outBanner()}${R.duel(s, m.id)}${R.qa(s) || `<p class="muted center"><b style="color:var(--fg)">${esc(dn(P(cur)))}</b> пише питання…</p>`}${R.order(s)}`;
+      }
       if (cur === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Питай уголос</h1>
         <p class="muted center">У вас до 2 хвилин. Коли відповіли — тисни кнопку.</p><button class="btn ok wide" data-act="asked">Відповіли ✓</button>${R.order(s)}`;
       if (s.target === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами 😏</p>${R.order(s)}`;
@@ -326,11 +341,15 @@ function screenHtml() {
       const head = R.phaseTag(s, `Предмети · ${s.idx + 1} з ${s.order.length}`);
       if (cur === m.id && s.stage === 'pick') return `${head}<h1>Обери свій предмет</h1>
         <p class="muted">Потім у тебе буде до 2 хвилин, щоб розповісти, як він пов'язаний з локацією.</p>${R.items(s, { pickable: true })}`;
+      if (cur === m.id && s.settings.remote) return `${head}<div class="hero-item"><span class="e">${it.e}</span><span class="n">${esc(it.n)}</span></div>
+        ${it.txt ? `<p class="center">«${esc(it.txt)}»</p>${wait('Усі читають…')}` : `<h1 class="center">Як він пов'язаний з локацією?</h1>
+        <textarea id="rtxt" maxlength="240" rows="3" placeholder="Напиши пояснення…"></textarea><button class="btn primary wide" id="rsend" data-a="explainText">Готово</button>`}`;
       if (cur === m.id) return `${head}<div class="hero-item"><span class="e">${it.e}</span><span class="n">${esc(it.n)}</span></div>
         <h1 class="center">Розповідай уголос</h1><p class="muted center">Як цей предмет пов'язаний з локацією? До 2 хвилин.</p>
         <button class="btn ok wide" data-act="explained">Розповів ✓</button>`;
       if (it) return `${head}${outBanner()}<div class="hero-item"><span class="e">${it.e}</span><span class="n">${esc(it.n)}</span>
-        <span class="muted" style="display:flex;align-items:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(dn(P(cur)))}</b> розповідає</span></div>${R.items(s, { current: curIdx })}`;
+        <span class="muted" style="display:flex;align-items:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(dn(P(cur)))}</b> ${s.settings.remote ? (it.txt ? 'пише:' : 'пише пояснення…') : 'розповідає'}</span>
+        ${it.txt ? `<p class="center" style="font-size:18px">«${esc(it.txt)}»</p>` : ''}</div>${R.items(s, { current: curIdx })}`;
       return `${head}${outBanner()}<p class="muted center"><b style="color:var(--fg)">${esc(dn(P(cur)))}</b> обирає предмет…</p>${R.items(s)}`;
     }
     case 'itemsDone':
@@ -426,7 +445,7 @@ function render() {
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
   const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, s.settings, s.players.map(p => p.score), Sound.on,
-    s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => i.by) : 0, s.res, s.end && s.end.reason]);
+    s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => [i.by, i.txt]) : 0, s.qa, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
     lastKey = key;
@@ -459,6 +478,7 @@ function render() {
   const tk = turn ? [s.game, s.phase, s.qi, s.idx, s.stage].join() : '';
   if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); Sound.turn(); }
   Timer.tick();
+  renderChat();
 }
 
 function bind() {
@@ -494,6 +514,12 @@ function bind() {
     btn.onclick = go; txt.onkeydown = e => { if (e.key === 'Enter') go(); };
     return;
   }
+  const rb = $('#rsend'), rt = $('#rtxt');
+  if (rb && rt) {
+    rt.focus();
+    const go = () => { const t = rt.value.trim(); if (t) { rb.disabled = true; api(rb.dataset.a, { text: t }); } else rt.focus(); };
+    rb.onclick = go; rt.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); go(); } };
+  }
   if (btn && txt) {
     const action = { names: 'name', words: 'word', guess: 'guess' }[st.phase];
     const go = () => { const t = txt.value.trim(); if (t) { btn.disabled = true; api(action, { text: t }); } else txt.focus(); };
@@ -510,6 +536,39 @@ setInterval(() => {
 }, 300);
 
 boot();
+
+// ---------- чат кімнати ----------
+let chatSeen = 0, chatOpen = false, chatDrawn = -1, chatHeard = -1;
+function chatKey() { return 'spy_chat_seen_' + (SES && SES.room); }
+function renderChat() {
+  if (!st || !SES) return;
+  const list = st.chat || [], m = me(), last = list.length ? list[list.length - 1].i : 0;
+  if (!chatSeen) chatSeen = store.get(chatKey()) || 0;
+  if (chatOpen && chatSeen !== last) { chatSeen = last; store.set(chatKey(), last); }
+  const unread = list.filter(x => x.i > chatSeen && (!m || x.from !== m.id)).length;
+  $('#chatBadge').hidden = !unread; $('#chatBadge').textContent = unread > 9 ? '9+' : unread;
+  if (chatHeard >= 0 && last > chatHeard && unread) buzz(30);
+  chatHeard = last;
+  if (chatOpen && last !== chatDrawn) {
+    const el = $('#chatList'), stick = chatDrawn < 0 || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    el.innerHTML = list.length ? list.map(x => { const mine = m && x.from === m.id; return `<div class="msg ${mine ? 'me' : ''}">${mine ? '' : av({ name: x.who })}
+      <div class="body">${mine ? '' : `<span class="who">${esc(x.who)}</span>`}<div class="txt">${esc(x.text)}</div></div></div>`; }).join('') : '<p class="muted center">Поки тихо. Напиши першим 👋</p>';
+    if (stick) el.scrollTop = el.scrollHeight;
+    chatDrawn = last;
+  }
+}
+function setChat(on) {
+  chatOpen = on; $('#chat').hidden = !on; chatDrawn = -1;
+  if (on) { renderChat(); setTimeout(() => $('#chatIn').focus(), 50); }
+}
+$('#chatBtn').onclick = () => setChat(!chatOpen);
+$('#chatClose').onclick = () => setChat(false);
+$('#chatForm').onsubmit = e => {
+  e.preventDefault();
+  const t = $('#chatIn').value.trim(); if (!t) return;
+  $('#chatIn').value = '';
+  api('chat', { text: t }).then(r => { if (r && r.error) { toast(r.error); $('#chatIn').value = t; } });
+};
 </script>
 </body>
 </html>

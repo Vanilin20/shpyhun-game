@@ -355,3 +355,29 @@ body.reconnecting::before{content:"Відновлюємо зв'язок із с�
 .vout{margin-top:8px;font-size:14px}
 .tv-end2{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;width:100%;margin:0 auto;align-items:start}
 .tv .vline{font-size:18px}
+
+/* чат */
+#chatBtn{position:relative}
+#chatBtn .badge{position:absolute;top:-6px;right:-6px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:800 11px/18px var(--body)}
+.chat{position:fixed;inset:auto 0 0 0;height:min(78vh,620px);z-index:60;display:flex;flex-direction:column;background:var(--ink2);border-top:1px solid var(--line);border-radius:20px 20px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.6);animation:chatUp .2s ease-out}
+@keyframes chatUp{from{transform:translateY(30px);opacity:0}}
+.chat-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line)}
+.chat-list{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px}
+.msg{display:flex;gap:8px;align-items:flex-end;max-width:85%}
+.msg .body{background:var(--panel2);border:1px solid var(--line);border-radius:14px 14px 14px 4px;padding:7px 11px}
+.msg .who{display:block;font:700 11px var(--mono);letter-spacing:.06em;color:var(--muted);margin-bottom:2px}
+.msg .txt{overflow-wrap:anywhere;font-size:15px}
+.msg.me{align-self:flex-end}
+.msg.me .body{background:var(--paper);color:var(--paper-ink);border-color:var(--paper);border-radius:14px 14px 4px 14px}
+.chat-form{display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.chat-form input{flex:1}
+/* питання-відповідь текстом */
+.qa{display:grid;gap:10px}
+.bub{padding:12px 14px;border-radius:16px;font-size:17px;line-height:1.35;overflow-wrap:anywhere}
+.bub .who{display:block;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;opacity:.65;margin-bottom:4px}
+.bub.q{background:var(--panel2);border:1px solid var(--line);border-radius:16px 16px 16px 4px;margin-right:12%}
+.bub.a{background:var(--paper);color:var(--paper-ink);border-radius:16px 16px 4px 16px;margin-left:12%}
+.bub.a.wait{opacity:.6;font-style:italic}
+.tv .bub{font-size:28px}
+textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:80px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:500 16px var(--body)}
+.item .txt{grid-column:1/-1;font-size:13px;font-style:italic;opacity:.85;overflow-wrap:anywhere}

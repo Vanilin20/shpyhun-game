@@ -155,7 +155,8 @@ const R = {
       return `<${tag} class="item ${it.by ? 'taken' : ''} ${i === current ? 'now' : ''} ${pickable && it.by ? 'dead' : ''}" style="animation-delay:${i * .04}s"
         ${tag === 'button' ? `data-pick="${i}"` : ''}>
         <span class="e">${it.e}</span><span>${esc(it.n)}</span>
-        ${owner ? `<span class="by">${av(owner)}${esc(owner.char || owner.name)}</span>` : ''}</${tag}>`;
+        ${owner ? `<span class="by">${av(owner)}${esc(owner.char || owner.name)}</span>` : ''}
+        ${it.txt ? `<span class="txt">«${esc(it.txt)}»</span>` : ''}</${tag}>`;
     }).join('')}</div>`;
   },
   duel(st, meId) {
@@ -189,13 +190,25 @@ const R = {
     return `<div class="settings">
       <span class="label">Раунди${ed ? ' · тисни, щоб увімкнути чи вимкнути' : ''}</span>
       <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('emoji', '😀 Емодзі')}</div>
+      <span class="label">Режим</span>
+      <div class="chips"><button class="opt-chip on" ${ed ? 'data-remote="0"' : 'disabled'} ${s.remote ? 'style="text-decoration:line-through;opacity:.75;background:var(--panel);color:var(--muted);border-color:var(--line)"' : ''}>🛋️ Поруч — уголос</button>
+        <button class="opt-chip ${s.remote ? 'on' : ''}" ${ed ? 'data-remote="1"' : 'disabled'}>🌐 На відстані — текстом</button></div>
+      ${s.remote ? '<p class="muted" style="font-size:13px;margin:0">Питання, відповіді й пояснення до предметів пишуться в грі. Є чат 💬. Голос — за бажанням у Discord/Telegram.</p>' : ''}
       ${s.drawing && s.items ? '<p class="muted" style="font-size:13px;margin:0">Малювання й предмети чергуються між партіями.</p>' : ''}
       <span class="label">Темп (час на етапи)</span><div class="chips">${pace}</div></div>`;
   },
   bindSettings(root, st, send) {
     root.querySelectorAll('[data-set]').forEach(b => b.onclick = () => send('settings', { settings: { [b.dataset.set]: !st.settings[b.dataset.set] } }));
+    root.querySelectorAll('[data-remote]').forEach(b => b.onclick = () => send('settings', { settings: { remote: b.dataset.remote === '1' } }));
     root.querySelectorAll('[data-pace]').forEach(b => b.onclick = () => send('settings', { settings: { pace: +b.dataset.pace } }));
     root.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => { if (confirm('Скинути рахунок усім?')) send('resetScore'); });
+  },
+  // питання й відповідь текстом (режим «на відстані»)
+  qa(st, noWait = false) {
+    const q = st.qa || {}, cur = st.order[st.idx];
+    if (!q.q) return '';
+    return `<div class="qa"><div class="bub q"><span class="who">${esc(dn(R.P(st, cur)))} питає</span>${esc(q.q)}</div>
+      ${q.a ? `<div class="bub a"><span class="who">${esc(dn(R.P(st, st.target)))} відповідає</span>${esc(q.a)}</div>` : noWait ? '' : `<div class="bub a wait"><span class="who">${esc(dn(R.P(st, st.target)))}</span>пише відповідь…</div>`}</div>`;
   },
   // таблиця очок між партіями
   scores(st) {
