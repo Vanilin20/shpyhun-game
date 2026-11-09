@@ -114,8 +114,17 @@ function createRoom(usedInit) {
   }
   function nextAsk() { S.idx++; if (S.idx >= S.order.length) toExtra(); else startAsk(); }
 
+  // після допиту — обидва раунди: малювання й предмети; порядок чергується між партіями
+  let drawFirst = Math.random() < .5;
   function toExtra() {
-    S.extra = Math.random() < .5 ? 'drawing' : 'items';
+    drawFirst = !drawFirst;
+    S.extras = drawFirst ? ['drawing', 'items'] : ['items', 'drawing'];
+    S.extraIdx = 0;
+    startExtra();
+  }
+  function nextExtra() { S.extraIdx++; if (S.extraIdx < S.extras.length) startExtra(); else toVote(); }
+  function startExtra() {
+    S.extra = S.extras[S.extraIdx];
     if (S.extra === 'drawing') { S.phase = 'drawing'; S.sub = {}; setTimer(SEC.drawing, revealDrawings); }
     else {
       S.phase = 'items';
@@ -124,14 +133,14 @@ function createRoom(usedInit) {
       startPick();
     }
   }
-  function revealDrawings() { S.drawings = { ...S.sub }; S.sub = {}; S.phase = 'drawReveal'; setTimer(SEC.drawReveal, () => toVote()); }
+  function revealDrawings() { S.drawings = { ...S.sub }; S.sub = {}; S.phase = 'drawReveal'; setTimer(SEC.drawReveal, nextExtra); }
   function startPick() { S.stage = 'pick'; setTimer(SEC.itemPick, itemsTimeout); }
   function startExplain() { S.stage = 'explain'; setTimer(SEC.explain, itemsTimeout); }
   function itemsTimeout() {
     if (S.stage === 'pick') { pickOne(S.items.filter(i => !i.by)).by = S.order[S.idx]; startExplain(); }
     else nextItem();
   }
-  function nextItem() { S.idx++; if (S.idx >= S.order.length) { S.phase = 'itemsDone'; setTimer(SEC.itemsDone, () => toVote()); } else startPick(); }
+  function nextItem() { S.idx++; if (S.idx >= S.order.length) { S.phase = 'itemsDone'; setTimer(SEC.itemsDone, nextExtra); } else startPick(); }
 
   function toVote(cands) {
     if (!cands) { S.revote = false; S.notice = ''; }
@@ -199,9 +208,9 @@ function createRoom(usedInit) {
       case 'namesReveal': return toQuestions();
       case 'questions': return questionsTimeout();
       case 'drawing': return revealDrawings();
-      case 'drawReveal': return toVote();
+      case 'drawReveal': return nextExtra();
       case 'items': return itemsTimeout();
-      case 'itemsDone': return toVote();
+      case 'itemsDone': return nextExtra();
       case 'vote': return tally();
       case 'voteResult': return toGuess();
       case 'guess': return afterGuess();
@@ -324,7 +333,7 @@ function createRoom(usedInit) {
       code: room.code, phase: ph, now: Date.now(), endsAt: S.endsAt || 0, game: S.game || '',
       theme: ph === 'lobby' ? null : S.theme, hostId: room.hostId,
       spies: ph === 'lobby' ? (players.length >= TWO_SPIES_FROM ? 2 : 1) : S.spyIds.length, maxPlayers: MAX_PLAYERS,
-      notice: S.notice || '', voteNo: S.voteNo || 1, extra: S.extra || null,
+      notice: S.notice || '', voteNo: S.voteNo || 1, extra: S.extra || null, extraNo: (S.extraIdx || 0) + 1,
       players: players.map(x => ({ id: x.id, name: x.name, alive: x.alive !== false, online: isOnline(x.id), char: showChars ? x.char : '' })),
       done: [],
     };
