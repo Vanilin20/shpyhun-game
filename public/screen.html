@@ -6,16 +6,17 @@
 <title>Шпигун — великий екран</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Manrope:wght@500;600;700;800&family=Unbounded:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ruslan+Display&family=Oswald:wght@500;700&family=Playfair+Display:ital,wght@0,900;1,700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Mono&display=swap">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body class="tv">
-<header class="top" id="top" style="padding-inline:40px">
-  <span class="brand" style="font-size:24px">ШПИ<b>Г</b>УН</span>
-  <span class="chip mono" id="codeChip" hidden></span>
-  <span class="chip theme" id="themeChip" hidden></span>
-  <span class="grow"></span>
-  <span id="ringSlot"></span>
+<header class="top" id="top">
+  <div class="mast">
+    <span class="issue"><small>Вихід</small><b id="codeChip">····</b></span>
+    <span class="masthead">Вечірній Шпигун</span>
+    <span id="ringSlot"></span>
+  </div>
+  <div class="strip"><span id="stripL">Вечірній випуск</span><span id="themeChip">❧ Великий екран ❧</span><span>Ціна: 1 підозра</span></div>
 </header>
 <main class="wrap" id="main"></main>
 <footer class="tv-foot" id="foot" hidden></footer>
@@ -26,27 +27,26 @@
 // /screen            — створити кімнату, де ведучий — цей екран (гравці лише з телефонів)
 // /screen?r=КОД      — показати вже створену кімнату (ведучий грає з телефона)
 $('#ringSlot').innerHTML = Timer.html();
-$('.ring').style.cssText = 'width:60px;height:60px';
 const urlRoom = (new URLSearchParams(location.search).get('r') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+let lastPhaseKey = '';
 let ROOM = '', KEY = '', st = null, live = null, lastKey = '', urlIdx = 0;
 const P = id => R.P(st, id);
 const act = (action, extra = {}) => postApi({ action, room: ROOM, key: KEY, ...extra }).then(r => { if (r.error) toast(r.error); if (live) live.refresh(); });
 
 function landing(msg) {
   $('#foot').hidden = true; lastKey = 'landing';
-  $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:26px;justify-items:center;text-align:center;padding-top:6vh">
-    <span class="stamp">Великий екран</span>
-    <div class="brand big">ШПИ<b>Г</b>УН</div>
-    <p class="muted" style="max-width:52ch">Тут буде видно все разом: QR для входу, хто кого питає, малюнки, предмети й результати. Грають усі з телефонів.</p>
+  $('#main').innerHTML = `<div class="screen-in home tv-home">
+    <h1 class="headline">${ransom('Великий екран', 54)}<small>Тут буде видно все разом: QR для входу, хто кого питає, малюнки, предмети й результати. Грають усі з телефонів.</small></h1>
     ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
-    <div style="display:grid;gap:14px;width:min(520px,100%)">
-      <button class="btn primary wide" id="newBtn">Нова кімната (ведучий — цей екран)</button>
+    <section class="classified">
+      <span class="cl-top">Оголошення</span>
+      <button class="btn primary wide" id="newBtn"><span class="star">★</span>Нова кімната — ведучий цей екран<span class="star">★</span></button>
       <div class="divider">або покажи кімнату з телефона</div>
-      <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
-        <input type="text" class="code-in" id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off">
+      <div class="joinrow">
+        <input type="text" class="code-in" id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off" aria-label="Код кімнати">
         <button class="btn" id="showBtn">Показати</button>
       </div>
-    </div></div>`;
+    </section></div>`;
   $('#newBtn').onclick = createRoom;
   const show = () => { const c = $('#codeIn').value.toUpperCase().replace(/[^A-Z]/g, ''); if (c.length === 4) open(c); };
   $('#showBtn').onclick = show;
@@ -82,30 +82,30 @@ function view() {
     case 'lobby': {
       const link = joinLink();
       return `<div class="tv-lobby">
-        <div style="display:grid;gap:12px;justify-items:center">
+        <div class="roomcard">
+          <div class="ad"><span class="cl-top">Оголошення</span><span class="ad-sub">Шукаємо агентів!</span><span class="cl-sub">Пароль до дверей:</span><span class="code">${esc(s.code)}</span></div>
           <div class="qr">${qrSvg(link)}</div>
-          <div class="mono" style="color:var(--paper);font-size:18px">${esc(link.replace(/^https?:\/\//, ''))}</div>
+          <div class="fine" style="font-size:18px">${esc(link.replace(/^https?:\/\//, ''))}</div>
           ${isLocalHost && (s.lanUrls || []).length > 1 ? `<button class="linkbtn" id="nextUrl">Телефони не відкривають? Інша адреса</button>` : ''}
         </div>
-        <div style="display:grid;gap:18px">
-          <div><span class="label">Код кімнати</span><div class="code" style="text-align:left;padding-left:0">${esc(s.code)}</div></div>
-          <h1>Скануйте QR і заходьте</h1>
-          <p class="muted">${s.players.length >= 7 ? 'У грі буде <b style="color:var(--red)">два шпигуни</b>.' : 'Від 3 до 12 гравців. Від 7 — два шпигуни.'}</p>
-          <div class="plist" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${s.players.length ? s.players.map(p => `
-            <div class="prow ${p.online ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}</span>${p.id === s.hostId ? '<span class="tag">👑</span>' : ''}
-            ${s.amHost ? `<button class="x" data-kick="${p.id}">×</button>` : ''}</div>`).join('') : '<p class="muted">Поки нікого…</p>'}</div>
+        <div style="display:grid;gap:18px;align-content:start">
+          <h1 class="headline left">${ransom('Збір товариства', 46)}<small>Скануйте QR і заходьте. ${s.players.length >= 7 ? 'У грі буде <b class="acc">два шпигуни</b>.' : 'Від 3 до 12 гравців, від 7 — два шпигуни.'}</small></h1>
+          <section class="present"><div class="sec-head"><span>Присутні · ${s.players.length} з ${s.maxPlayers}</span></div>
+          <div class="plist cols">${s.players.length ? s.players.map((p, i) => `
+            <div class="prow ${p.online ? '' : 'off'}" style="--i:${i}">${av(p)}<span class="nm">${esc(p.name)}</span><span class="lead"></span>${p.id === s.hostId ? '<span class="tag">♛ редактор</span>' : ''}
+            ${s.amHost ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати">${ICON.close}</button>` : ''}</div>`).join('') : '<p class="fine">Поки нікого… Чекаємо перших агентів.</p>'}</div></section>
           ${R.settings(s)}
           ${R.scores(s)}
-          <button class="linkbtn" id="soundBtn" style="justify-self:start">${Sound.on ? '🔊 Звук увімкнено' : '🔇 Звук вимкнено'}</button>
+          <button class="linkbtn" id="soundBtn" style="justify-self:start">${Sound.on ? ICON.sound + 'Звук увімкнено' : ICON.mute + 'Звук вимкнено'}</button>
         </div></div>`;
     }
-    case 'roles': return `<div class="center" style="display:grid;gap:18px;justify-items:center;padding-top:6vh"><span class="stamp big">Цілком таємно</span><h1>Подивіться у свої досьє</h1><p class="muted">Натисніть і тримайте на телефоні. Не показуйте сусідам.</p></div>`;
+    case 'roles': return `<div class="tv-wait"><span class="stamp big">Цілком таємно</span><h1 class="headline">${ransom('Секретно!', 64)}<span>Пакет доставлено</span><small>Натисніть і тримайте вирізку на телефоні. Не показуйте сусідам.</small></h1></div>`;
     case 'names': return `${R.phaseTag(s, `Імена · ${Math.min(s.idx + 1, s.order.length)} з ${s.order.length}`)}<h1>Хто ви сьогодні?</h1>
       <div style="max-width:800px;width:100%;margin:0 auto">${R.namelist(s)}</div>`;
     case 'namesReveal': return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.duel(s)}
       ${s.settings.remote ? (R.qa(s) ? `<div style="max-width:900px;width:100%;margin:0 auto">${R.qa(s)}</div>` : '<p class="muted center" style="font-size:20px">Пишеться питання…</p>') : '<p class="muted center" style="font-size:20px">Питання й відповідь — уголос. До 2 хвилин.</p>'}${R.order(s)}`;
-    case 'drawing': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🎨</span><h1>Малюємо локацію</h1><p class="muted">Потім усі малюнки з'являться тут.</p></div>`;
+    case 'drawing': return `<div class="tv-wait"><h1 class="headline">${ransom('Художники', 64)}<span>Малюємо локацію</span><small>Потім усі малюнки з'являться тут.</small></h1></div>`;
     case 'drawReveal': return `${R.phaseTag(s)}<h1>Галерея доказів</h1>${R.gallery(s)}`;
     case 'items': {
       const it = s.items.find(x => x.by === cur && s.stage === 'explain');
@@ -114,33 +114,30 @@ function view() {
         ${it ? '<p class="muted" style="font-size:20px">Як це пов\'язано з локацією? До 2 хвилин.</p>' : ''}${R.items(s, { current: it ? s.items.indexOf(it) : -1 })}`;
     }
     case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
-    case 'emoji': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">😶‍🌫️</span><h1>Три емодзі</h1><p class="muted">Кожен описує локацію трьома емодзі. Потім усі з'являться тут.</p></div>`;
+    case 'emoji': return `<div class="tv-wait"><h1 class="headline">${ransom('Три емодзі', 64)}<span>Шифровка дня</span><small>Кожен описує локацію трьома емодзі. Потім усі з'являться тут.</small></h1></div>`;
     case 'emojiReveal': return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
-    case 'scene': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🧩</span><h1>Складаємо сцени</h1><p class="muted">Кожен складає місце з 1–5 наліпок. Потім усі сцени з'являться тут.</p></div>`;
+    case 'scene': return `<div class="tv-wait"><h1 class="headline">${ransom('Колаж', 64)}<span>Складаємо сцени</span><small>Кожен складає місце з 1–5 наліпок. Потім усі сцени з'являться тут.</small></h1></div>`;
     case 'sceneReveal': return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
-    case 'clock': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🕰️</span><h1>Годинник</h1>
-      <div style="display:grid;gap:8px;font-size:22px">${s.cq.map(c => `<div>${esc(c.q)}</div>`).join('')}</div><p class="muted">Відповідайте на телефонах.</p></div>`;
+    case 'clock': return `<div class="tv-wait"><h1 class="headline">${ransom('Годинник', 64)}<span>Розклад дня</span><small>Відповідайте на телефонах.</small></h1>
+      <ol class="qlist">${s.cq.map(c => `<li>${esc(c.q)}</li>`).join('')}</ol></div>`;
     case 'clockReveal': return `${R.phaseTag(s)}<h1>Хто що відповів</h1>${R.clockReveal(s)}`;
-    case 'notes': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">✉️</span><h1>Анонімні записки</h1>
-      <p class="muted">${s.stage === 'ask' ? 'Кожен пише питання — його отримає випадковий гравець.' : 'Тепер кожен анонімно відповідає на записку.'}</p></div>`;
+    case 'notes': return `<div class="tv-wait"><h1 class="headline">${ransom('Записки', 64)}<span>Анонімна пошта</span><small>${s.stage === 'ask' ? 'Кожен пише питання — його отримає випадковий гравець.' : 'Тепер кожен анонімно відповідає на записку.'}</small></h1></div>`;
     case 'notesReveal': return `${R.phaseTag(s)}<h1>Анонімні записки</h1><div style="max-width:1000px;width:100%;margin:0 auto">${R.notes(s)}</div>`;
-    case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
-      <span class="stamp big">Голосування${s.voteNo > 1 ? ' №' + s.voteNo : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
+    case 'vote': return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
+      <div class="wanted-head"><span class="kicker">★ ★ ★ Увага ★ ★ ★</span><h1>${ransom('Розшукується', 56)}</h1><span class="deck-line">шпигун · голосуйте на телефонах</span></div>
+      <div class="wanted-grid">${R.alive(s).filter(p => !s.cands || s.cands.includes(p.id)).map((p, i) => R.poster(s, p, { i })).join('')}</div>`;
     case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
-      return `<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>Вигнали: ${esc(dn(out))}</h1>` : '<h1>Нікого не вигнали</h1>'}<p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>
+      return `${R.phaseTag(s, 'Вирок')}<div class="verdict-out">${out ? `${R.poster(s, out, { stamp: 'Вигнано' })}<h1 class="headline">Вигнали: ${esc(dn(out))}</h1>` : `<h1 class="headline">${ransom('Нікого', 56)}<span>не вигнали</span></h1>`}<p class="deck-line">Хто він насправді — редакція повідомить пізніше.</p></div>
         <div style="max-width:760px;width:100%;margin:0 auto">${R.bars(s)}</div>`; }
-    case 'guess': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:6vh"><span style="font-size:90px">🕶️</span><h1>Шанс шпигуна</h1>
-      <p class="muted" style="font-size:20px">${s.spies > 1 ? 'Кожен шпигун може окремо назвати локацію. Вгадає — перемога шпигунів. Помилиться — вибуває.' : 'Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.'}</p></div>`;
-    case 'verdict': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh"><span class="label">Шпигун каже</span>
-      <div class="paper" style="--rot:-1.5deg;min-width:min(600px,90vw)"><div class="val" style="font-size:40px">«${esc(s.guess)}»</div></div>
-      <p class="muted" style="font-size:20px">Мирні вирішують на телефонах, чи це правильно.</p></div>`;
-    case 'words': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1>Одне слово</h1><p class="muted">Кожен пише одне слово про локацію.</p></div>`;
+    case 'guess': return `<div class="tv-wait"><span class="stamp big">Шанс шпигуна</span><h1 class="headline">${ransom('Тиша в залі', 60)}<span>Шпигун говорить</span></h1>
+      <p class="deck-line">${s.spies > 1 ? 'Кожен шпигун може окремо назвати локацію. Вгадає — перемога шпигунів. Помилиться — вибуває.' : 'Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.'}</p></div>`;
+    case 'verdict': return `<div class="tv-wait"><h1 class="headline"><span>Шпигун каже:</span></h1>
+      <div class="paper clip telegram"><div class="lbl">Телеграма</div><div class="val">«${esc(s.guess)}» стоп</div></div>
+      <p class="deck-line">Мирні вирішують на телефонах, чи це правильно.</p></div>`;
+    case 'words': return `<div class="tv-wait">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1 class="headline">${ransom('Одне слово', 64)}<span>Остання колонка</span><small>Кожен пише одне слово про локацію.</small></h1></div>`;
     case 'wordsReveal': return `${R.phaseTag(s)}<h1>Слова на стіл</h1>${R.words(s)}`;
     case 'end': { const e = s.end, spyWon = e.winner === 'spy';
-      return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
-        <p class="muted" style="font-size:20px">${REASON[e.reason] || ''}</p></div>
-        <div style="max-width:900px;width:100%;margin:0 auto">${R.endReveal(s).replace('class="reveal3"', 'class="reveal3" style="grid-template-columns:1fr 1fr"')}</div>
-        <div class="tv-end2">${R.scores(s)}${R.votes(s)}</div>`; }
+      return `${R.front(s)}<div class="tv-end2">${R.scores(s)}${R.votes(s)}</div>`; }
   }
   return '';
 }
@@ -148,29 +145,32 @@ function view() {
 const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'clockReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
 function actions() {
   if (!st.amHost) return '';
-  if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`; }
-  if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
+  if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}><span class="star">☞</span>Відкрити засідання · ${n}</button>`; }
+  if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start"><span class="star">★</span>Новий номер</button>`;
   if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
   if (st.phase === 'verdict') return '';
-  return `<button class="btn ghost small" data-host="next">${['questions', 'items', 'names'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
+  return `<button class="btn ghost red small" data-host="next">${['questions', 'items', 'names'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
 }
 
 function render() {
   const s = st;
-  $('#codeChip').hidden = false; $('#codeChip').textContent = 'КОД ' + s.code;
-  $('#themeChip').hidden = !s.theme; $('#themeChip').textContent = s.theme || '';
+  $('#codeChip').textContent = s.code;
+  $('#themeChip').textContent = s.theme ? `❧ Рубрика: ${s.theme} ❧` : '❧ Збір товариства ❧';
+  $('#stripL').textContent = PHASE_NAME[s.phase] || 'Вечірній випуск';
   const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.qa, s.named, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
     s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0, s.scenes ? Object.keys(s.scenes) : 0, s.stage]);
   if (key !== lastKey) {
     lastKey = key;
-    $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:24px">${view()}</div>`;
+    const pk = s.game + s.phase + (s.stage || '');
+    const fresh = pk !== lastPhaseKey; lastPhaseKey = pk;
+    $('#main').innerHTML = `<div class="screen-in page-${s.phase}">${view()}</div>`;
     $('#main').querySelectorAll('[data-kick]').forEach(b => b.onclick = () => act('kick', { target: b.dataset.kick }));
     R.bindSettings($('#main'), s, act);
     if ($('#soundBtn')) $('#soundBtn').onclick = () => { Sound.toggle(); lastKey = ''; render(); };
-    if (['namesReveal', 'drawReveal', 'emojiReveal', 'sceneReveal', 'clockReveal', 'notesReveal', 'voteResult', 'wordsReveal', 'end'].includes(s.phase)) Sound.reveal();
+    if (fresh) s.phase === 'end' ? Sound.press() : REVEAL.includes(s.phase) ? Sound.reveal() : s.phase !== 'lobby' && Sound.paper();
     if ($('#nextUrl')) $('#nextUrl').onclick = () => { urlIdx++; lastKey = ''; render(); };
     R.bindZoom($('#main'));
-    if (s.phase === 'end') confetti();
+    if (s.phase === 'end' && fresh) confetti();
   }
   const done = new Set(s.done || []);
   const foot = s.phase === 'lobby' ? '' : s.players.map(p => `<div class="prow ${done.has(p.id) ? 'done' : ''} ${p.alive ? '' : 'off'}">${av(p)}<span class="nm">${esc(dn(p))}</span></div>`).join('');

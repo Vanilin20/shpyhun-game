@@ -7,6 +7,50 @@ const store = {
 };
 const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
+// ---------- газетні дрібниці ----------
+// літери, вирізані з різних газет (як у листі з викупом)
+const RL = ['ink', 'clip', 'kraft', 'red', 'tan', 'lined'];
+function ransom(text, size = 34, cls = '') {
+  let k = 0;
+  return `<span class="ransom ${cls}" aria-label="${esc(text)}" style="--fs:${size}px">${[...String(text)].map((ch, i) => {
+    if (ch === ' ') return '<span class="rl-gap"></span>';
+    const v = RL[(i * 7 + text.length * 3) % RL.length], r = [-5, 3, -2, 6, -3, 2, -6, 4, -1, 5][(i * 3 + k++) % 10];
+    return `<span class="rl ${v}" aria-hidden="true" style="--r:${r}deg;--i:${i}">${esc(ch)}</span>`;
+  }).join('')}</span>`;
+}
+// клаптики старих газет по краях сторінки
+function scraps() {
+  if (document.querySelector('.scraps')) return;
+  const d = document.createElement('div'); d.className = 'scraps'; d.setAttribute('aria-hidden', 'true');
+  d.innerHTML = `<i class="sc grid" style="top:16vh;left:-62px;--r:-8deg"></i>
+    <i class="sc cols" style="top:42vh;right:-60px;--r:10deg"></i>
+    <i class="sc kraft" style="top:74vh;left:-44px;--r:-9deg"><b>СЕНСАЦ</b><small>БІРЖОВІ ВІДОМОСТІ · КУРС ПІДОЗР</small></i>
+    <i class="sc dots" style="top:88vh;right:-24px;--r:7deg"></i><i class="fold"></i>`;
+  document.body.prepend(d);
+}
+document.addEventListener('DOMContentLoaded', scraps);
+const ICON = {
+  chat: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
+  role: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M7 10h6M7 14h10"/></svg>',
+  share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v7h14v-7"/></svg>',
+  link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  book: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a3 3 0 0 1 3 3v11H7a3 3 0 0 1-3-3z"/><path d="M8 9h6M8 13h6"/></svg>',
+  sound: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>',
+  mute: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M17 10l4 4M21 10l-4 4"/></svg>',
+  door: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4H6v16h8"/><path d="M11 12h10M18 9l3 3-3 3"/></svg>',
+  send: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-6z"/></svg>',
+  close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  undo: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg>',
+  fill: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 11l7-7 7 7-7 7z"/><path d="M20 15c0 2-1 3-1.5 3S17 17 17 15c0-1 1.5-3 1.5-3S20 14 20 15z"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>',
+  rl: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M4.5 10A8 8 0 1 1 6 17"/></svg>',
+  rr: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4v6h-6"/><path d="M19.5 10A8 8 0 1 0 18 17"/></svg>',
+  minus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>',
+  hand: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13V5a1.5 1.5 0 0 1 3 0v6M11 11V4a1.5 1.5 0 0 1 3 0v7M14 11V5.5a1.5 1.5 0 0 1 3 0V14a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-3l-2-4a1.5 1.5 0 0 1 2.6-1.5L8 13"/></svg>',
+  pen: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1L19 8l-3-3L5 16z"/><path d="M14 7l3 3"/></svg>',
+};
+
 // колір аватара з імені
 function hueOf(s) { let h = 0; for (const ch of String(s)) h = (h * 31 + ch.codePointAt(0)) % 360; return h; }
 // ім'я в грі: після раунду імен — ім'я персонажа, до того — справжнє
@@ -79,7 +123,7 @@ const Timer = (() => {
     if (st.endsAt !== lastEnds) { if (lastSec >= 0 && lastSec <= 1 && !upDone) Sound.timeUp(); upDone = false; lastEnds = st.endsAt; lastSec = -1; ends = st.endsAt; total = st.endsAt ? Math.max(1, st.endsAt - st.now) : 0; }
   }
   function left() { return ends ? Math.max(0, ends - Date.now() - off) : null; }
-  function html() { return `<div class="ring" id="ring" hidden><svg viewBox="0 0 46 46"><circle class="bg" cx="23" cy="23" r="20"/><circle class="fg" cx="23" cy="23" r="20" stroke-dasharray="125.66" stroke-dashoffset="0"/></svg><span></span></div>`; }
+  function html() { return `<div class="ring" id="ring" role="timer" hidden><svg viewBox="0 0 46 46"><circle class="bg" cx="23" cy="23" r="20"/><circle class="fg" cx="23" cy="23" r="20" stroke-dasharray="125.66" stroke-dashoffset="0"/></svg><span></span><small>час</small></div>`; }
   function tick() {
     const el = $('#ring'); if (!el) return;
     const l = left();
@@ -91,7 +135,7 @@ const Timer = (() => {
       if (s === 0 && lastSec > 0 && !upDone) { upDone = true; Sound.timeUp(); }
       lastSec = s;
     }
-    el.querySelector('span').textContent = s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : s;
+    el.querySelector('span').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     el.querySelector('.fg').style.strokeDashoffset = 125.66 * (1 - (total ? l / total : 0));
     el.classList.toggle('low', s <= 10);
   }
@@ -124,7 +168,7 @@ const R = {
   P(st, id) { return st.players.find(p => p.id === id) || { name: '?', char: '' }; },
   alive(st) { return st.players.filter(p => p.alive); },
   // у додаткових раундах після голосування показуємо, що сталося (хто вибув)
-  phaseTag(st, text) { return `<div class="phase-tag"><span class="dot"></span><span class="label">${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
+  phaseTag(st, text) { return `<div class="phase-tag"><span>${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
 
   names(st) {
     return `<div class="cards">${st.players.map((p, i) => `
@@ -140,7 +184,7 @@ const R = {
     return `<div class="gallery">${R.alive(st).map((p, i) => {
       const img = st[field] && st[field][p.id];
       return `<div class="polaroid" style="${rot(i)};animation-delay:${i * .15}s" ${img ? `data-zoom="${i}"` : ''}>
-        ${img ? `<img src="${img}" alt="Малюнок: ${esc(p.char || p.name)}">` : '<div class="none">🙈</div>'}
+        ${img ? `<img src="${img}" alt="Малюнок: ${esc(p.char || p.name)}">` : '<div class="none">не здано</div>'}
         <div class="cap">${av(p)}${esc(p.char || p.name)}</div></div>`;
     }).join('')}</div>`;
   },
@@ -168,7 +212,7 @@ const R = {
     return `<div class="duel">
       <div class="who">${av(a, 'lg')}${nameOf(a)}</div>
       <div class="arrow">${b ? '→' : '…'}</div>
-      <div class="who">${b ? `${av(b, 'lg')}${nameOf(b)}` : '<span class="av lg" style="background:var(--panel2)">?</span><small>обирає</small>'}</div></div>`;
+      <div class="who">${b ? `${av(b, 'lg')}${nameOf(b)}` : '<span class="av lg q">?</span><small>обирає</small>'}</div></div>`;
   },
   order(st) {
     return `<div class="order">${st.order.map((id, i) => `<span class="${i === st.idx ? 'cur' : i < st.idx ? 'past' : ''}">${esc(dn(R.P(st, id)))}</span>`).join('')}</div>`;
@@ -191,14 +235,14 @@ const R = {
     const chip = (k, label) => `<button class="opt-chip ${s[k] ? 'on' : ''}" ${ed ? `data-set="${k}"` : 'disabled'}>${label}</button>`;
     const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
     return `<div class="settings">
-      <span class="label">Раунди${ed ? ' · тисни, щоб увімкнути чи вимкнути' : ''}</span>
-      <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('scene', '🧩 Сцена')}${chip('emoji', '😀 Емодзі')}${chip('clock', '🕰️ Годинник')}${chip('notes', '✉️ Записки')}</div>
-      <p class="muted" style="font-size:13px;margin:0">Щогри випадково 2 різні з увімкнених: один після імен, другий перед голосуванням.</p>
-      <span class="label">Режим</span>
-      <div class="chips"><button class="opt-chip on" ${ed ? 'data-remote="0"' : 'disabled'} ${s.remote ? 'style="text-decoration:line-through;opacity:.75;background:var(--panel);color:var(--muted);border-color:var(--line)"' : ''}>🛋️ Поруч — уголос</button>
-        <button class="opt-chip ${s.remote ? 'on' : ''}" ${ed ? 'data-remote="1"' : 'disabled'}>🌐 На відстані — текстом</button></div>
-      ${s.remote ? '<p class="muted" style="font-size:13px;margin:0">Питання, відповіді й пояснення до предметів пишуться в грі. Є чат 💬. Голос — за бажанням у Discord/Telegram.</p>' : ''}
-      <span class="label">Темп (час на етапи)</span><div class="chips">${pace}</div></div>`;
+      <div class="sec-head"><span>Рубрики номера</span>${ed ? '<small>тисни, щоб увімкнути</small>' : ''}</div>
+      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}${chip('clock', 'Годинник')}${chip('notes', 'Записки')}</div>
+      <p class="fine">Щогри випадково 2 різні з увімкнених: одна після імен, друга перед голосуванням.</p>
+      <div class="sec-head"><span>Як граємо</span></div>
+      <div class="chips"><button class="opt-chip ${s.remote ? '' : 'on'}" ${ed ? 'data-remote="0"' : 'disabled'}>Поруч — уголос</button>
+        <button class="opt-chip ${s.remote ? 'on' : ''}" ${ed ? 'data-remote="1"' : 'disabled'}>На відстані — текстом</button></div>
+      ${s.remote ? '<p class="fine">Питання, відповіді й пояснення до предметів пишуться в грі, а для розмов є чат. Голос — за бажанням у Discord чи Telegram.</p>' : ''}
+      <div class="sec-head"><span>Темп</span><small>час на етапи</small></div><div class="chips">${pace}</div></div>`;
   },
   bindSettings(root, st, send) {
     root.querySelectorAll('[data-set]').forEach(b => b.onclick = () => send('settings', { settings: { [b.dataset.set]: !st.settings[b.dataset.set] } }));
@@ -265,44 +309,65 @@ const R = {
     const ps = st.players.slice().sort((a, b) => b.score - a.score);
     if (!ps.some(p => p.score)) return '';
     const g = (st.end && st.end.gain) || {};
-    return `<div class="scores"><span class="label">Рахунок</span>${ps.map((p, i) => `
-      <div class="srow">${i === 0 && p.score > (ps[1] ? ps[1].score : 0) ? '<span class="rk">👑</span>' : `<span class="rk">${i + 1}</span>`}
-        ${av({ name: p.name })}<span class="nm">${esc(p.name)}</span>${g[p.id] ? `<span class="gain">+${g[p.id]}</span>` : ''}<b>${p.score}</b></div>`).join('')}
-      ${st.amHost ? '<button class="linkbtn" data-reset>Скинути рахунок</button>' : ''}</div>`;
+    return `<div class="scores"><div class="sec-head"><span>Таблиця рахунку</span>${st.amHost ? '<button class="linkbtn" data-reset>скинути</button>' : ''}</div>${ps.map((p, i) => `
+      <div class="srow" style="--i:${i}">${i === 0 && p.score > (ps[1] ? ps[1].score : 0) ? '<span class="rk">♛</span>' : `<span class="rk">${i + 1}</span>`}
+        <span class="nm">${esc(p.name)}</span><span class="lead"></span>${g[p.id] ? `<span class="gain">+${g[p.id]}</span>` : ''}<b>${p.score}</b></div>`).join('')}</div>`;
   },
   // історія голосувань у кінці партії
   votes(st) {
     const e = st.end, log = (e && e.votes) || [];
     if (!log.length) return '';
     const who = id => esc(dn(R.P(st, id)));
-    return `<div class="votelog"><span class="label">Хто за кого голосував</span>${log.map((r, i) => `
-      <div class="paper" style="${rot(i)}"><div class="lbl">Голосування ${r.no}${r.revote ? ' · переголосування' : ''}</div>
-        ${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}
-        <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — шпигун 🕵️' : ''}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
+    return `<div class="votelog">${log.map((r, i) => `
+      <div class="chron"><div class="sec-head"><span>Хроніка голосування № ${r.no}${r.revote ? ' · переголосування' : ''}</span></div>
+        <div class="vgrid">${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}</div>
+        <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — <span class="hit">шпигун</span>' : ' — мирний'}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
   },
-  endReveal(st) {
-    const e = st.end, spies = e.spyIds.map(id => R.P(st, id));
-    return `<div class="reveal3">
-      <div class="paper" style="${rot(0)}"><div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div>
-        <div class="lbl">Локація</div><div class="val">${esc(e.location)}</div></div>
-      <div class="paper" style="${rot(1)}"><div class="lbl">${spies.length > 1 ? 'Шпигуни' : 'Шпигун'}</div>
-        ${spies.map(spy => `<div class="val" style="display:flex;align-items:center;gap:10px;margin-bottom:4px">${av(spy, 'lg')}<span>${esc(spy.name)}${spy.char ? `<br><span style="font:600 14px var(--body);opacity:.7">«${esc(spy.char)}»</span>` : ''}</span></div>`).join('')}
-        ${e.guess ? `<div class="lbl" style="margin-top:12px">Здогадка${e.guessBy ? ' · ' + esc(dn(R.P(st, e.guessBy))) : ''}</div><div class="val" style="font-size:20px">«${esc(e.guess)}»</div>` : ''}
-        ${e.tally ? `<div class="lbl">Рішення мирних</div><div class="val" style="font-size:20px">✓ ${e.tally.yes} · ✗ ${e.tally.no}</div>` : ''}</div></div>`;
+  // плакат «Розшукується» (голосування)
+  poster(st, p, { tag = 'div', sel = false, attr = '', stamp = '', i = 0 } = {}) {
+    const letter = ([...dn(p).trim()][0] || '?').toUpperCase();
+    return `<${tag} class="wanted ${sel ? 'sel' : ''}" ${attr} style="${rot(i)};--i:${i}">
+      <span class="w-top">Розшукується</span>
+      <span class="w-photo"><span>${esc(letter)}</span></span>
+      <span class="w-name">${esc(dn(p))}</span>
+      ${p.char && p.char !== p.name ? `<span class="w-real">він же ${esc(p.name)}</span>` : '<span class="w-real">&nbsp;</span>'}
+      ${stamp ? `<span class="stamp w-stamp">${stamp}</span>` : ''}</${tag}>`;
+  },
+  // фінал: перша шпальта газети
+  front(st, meId) {
+    const e = st.end, spyWon = e.winner === 'spy', spies = e.spyIds.map(id => R.P(st, id)), multi = spies.length > 1;
+    const me = meId && st.me, iWon = me ? (me.isSpy ? spyWon : !spyWon) : null;
+    const [w1, w2] = spyWon ? (multi ? ['Шпигуни', 'втекли!'] : ['Шпигун', 'утік!']) : (multi ? ['Шпигунів', 'викрито!'] : ['Шпигуна', 'викрито!']);
+    const by = e.guessBy ? esc(dn(R.P(st, e.guessBy))) : '';
+    const story = `едакція повідомляє: тема вечора — «${esc(st.theme)}», місце події — <b>${esc(e.location)}</b>. ` +
+      (e.guess ? `${by ? `Агент «${by}»` : 'Шпигун'} назвав локацію «${esc(e.guess)}»${e.tally ? ` — рішення мирних: ✓ ${e.tally.yes} · ✗ ${e.tally.no}` : ''}. ` : 'Локацію шпигун так і не назвав. ') +
+      (spyWon ? 'Редакція шукає винних.' : 'Мирні громадяни можуть спати спокійно.');
+    return `<article class="front">
+      <div class="front-mast"><span class="fm-strip"><span>Спецвипуск</span><span>Вихід ${esc(st.code)}</span></span>
+        <span class="fm-title">Вечірній Шпигун</span><span class="fm-rule">❦ Справу закрито ❦</span></div>
+      <div class="flashrow"><span class="flash ${iWon === false ? 'lose' : ''}">${iWon == null ? 'Блискавка!' : iWon ? 'Ти переміг!' : 'Цього разу — поразка'}</span><span class="hatch"></span></div>
+      <h1 class="front-h"><span>${w1}</span>${ransom(w2, 36)}<span class="acc">у локації «${esc(e.location)}»</span></h1>
+      <p class="deck">${esc(REASON[e.reason] || '')}</p>
+      <div class="front-body">
+        <div class="figs">${spies.map(s => `<figure class="fig"><div class="photo"><span>${esc(([...dn(s).trim()][0] || '?').toUpperCase())}</span></div>
+          <span class="stamp">${spyWon ? 'На волі' : 'Викрито'}</span>
+          <figcaption>Фото: ${s.char ? `«${esc(s.char)}», він же ` : ''}${esc(s.name)}</figcaption></figure>`).join('')}</div>
+        <p class="story"><span class="drop">Р</span>${story}</p>
+      </div></article>`;
   },
 };
 
 function confetti() {
   const box = document.createElement('div'); box.className = 'confetti';
-  const colors = ['#e3412a', '#f0bd4f', '#4fd18b', '#5b8cff', '#efe3c4'];
+  const colors = ['#2a2117', '#eadbb0', '#c49a5e', '#8f2f1f', '#e8d5a4', '#b8935e'];
   box.innerHTML = Array.from({ length: 90 }, () =>
-    `<i style="left:${Math.random() * 100}%;background:${colors[Math.floor(Math.random() * colors.length)]};animation-duration:${2.2 + Math.random() * 2.4}s;animation-delay:${Math.random() * .8}s;transform:rotate(${Math.random() * 360}deg)"></i>`).join('');
+    `<i style="left:${Math.random() * 100}%;width:${8 + Math.random() * 14}px;height:${10 + Math.random() * 18}px;background:${colors[Math.floor(Math.random() * colors.length)]};--sx:${(Math.random() - .5) * 160}px;animation-duration:${2.6 + Math.random() * 2.6}s;animation-delay:${Math.random() * .9}s"></i>`).join('');
   document.body.appendChild(box); setTimeout(() => box.remove(), 6000);
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
-// ---------- звуки (Web Audio, без файлів) ----------
+// ---------- звуки (Web Audio, без файлів): друкарська машинка, папір, печатка, друкарня ----------
 const Sound = (() => {
-  let ctx = null, on = store.get('spy_sound') !== false, unlocked = false;
+  let ctx = null, on = store.get('spy_sound') !== false, unlocked = false, nbuf = null, lastKey = 0;
   // iPhone: без цього Web Audio мовчить, коли увімкнено беззвучний режим
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
   function unlock() {
@@ -318,28 +383,58 @@ const Sound = (() => {
   }
   for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, unlock, { passive: true, capture: true });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); });
-  function play(notes) {
-    if (!on) return;
-    if (!ctx) { unlock(); if (!ctx) return; }
+  function ready() {
+    if (!on) return false;
+    if (!ctx) { unlock(); if (!ctx) return false; }
     if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    return true;
+  }
+  // тони: [частота, коли, тривалість, форма, гучність]
+  function play(notes) {
+    if (!ready()) return;
     const t = ctx.currentTime + .02;
-    for (const [f, at, dur, type = 'sine', vol = .35] of notes) {
+    for (const [f, at, dur, type = 'sine', vol = .35, f2] of notes) {
       const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = type; o.frequency.value = f;
-      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + .015); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      o.type = type; o.frequency.setValueAtTime(f, t + at); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + at + dur);
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + .01); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
       o.connect(g); g.connect(ctx.destination); o.start(t + at); o.stop(t + at + dur + .05);
+    }
+    Sound.played = (Sound.played || 0) + 1;
+  }
+  // шум: [коли, тривалість, гучність, частота фільтра, тип фільтра, добротність]
+  function noise(parts) {
+    if (!ready()) return;
+    if (!nbuf) { nbuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const d = nbuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const t = ctx.currentTime + .02;
+    for (const [at, dur, vol, f, type = 'bandpass', q = 1] of parts) {
+      const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = nbuf; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + Math.min(.012, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      s.connect(fl); fl.connect(g); g.connect(ctx.destination); s.start(t + at, Math.random() * .5); s.stop(t + at + dur + .05);
     }
     Sound.played = (Sound.played || 0) + 1;
   }
   const Sound = {
     get on() { return on; },
     toggle() { on = !on; store.set('spy_sound', on); unlock(); if (on) this.turn(); return on; },
-    turn() { play([[660, 0, .14, 'triangle'], [990, .15, .26, 'triangle']]); },                  // твоя черга
-    timeUp() { play([[520, 0, .22, 'square', .2], [350, .24, .42, 'square', .2]]); },           // час вийшов
-    tick() { play([[1200, 0, .06, 'sine', .2]]); },                                              // останні секунди
-    reveal() { play([[523, 0, .13, 'triangle'], [659, .11, .13, 'triangle'], [784, .22, .3, 'triangle']]); },
-    chat() { play([[880, 0, .08, 'sine', .2]]); },
+    // твоя черга: дзвіночок друкарської машинки
+    turn() { noise([[0, .09, .25, 1800, 'bandpass', .8]]); play([[2093, .06, .9, 'sine', .22], [4186, .06, .4, 'sine', .07]]); },
+    // час вийшов: два удари будильника
+    timeUp() { play([[880, 0, .12, 'square', .12], [660, .14, .12, 'square', .12], [880, .32, .12, 'square', .12], [660, .46, .3, 'square', .12]]); },
+    tick() { noise([[0, .03, .3, 3200, 'highpass']]); play([[1500, 0, .03, 'square', .05]]); },        // останні секунди
+    reveal() { this.paper(); play([[784, .12, .5, 'sine', .14], [1175, .2, .7, 'sine', .1]]); },      // розкриття
+    chat() { noise([[0, .05, .2, 2400, 'bandpass', 2]]); play([[1320, 0, .09, 'sine', .12]]); },
+    // шелест сторінки
+    paper() { noise([[0, .16, .16, 4200, 'bandpass', .6], [.07, .22, .12, 2600, 'bandpass', .5], [.2, .12, .08, 5200, 'bandpass', .7]]); },
+    // удар печатки
+    stamp() { noise([[0, .14, .55, 320, 'lowpass', .7], [0, .05, .3, 1600, 'bandpass', 1]]); play([[120, 0, .16, 'sine', .45, 55]]); },
+    // клавіша друкарської машинки
+    key() { const n = performance.now(); if (n - lastKey < 35) return; lastKey = n; noise([[0, .035, .22, 2800 + Math.random() * 900, 'bandpass', 1.4]]); play([[180, 0, .04, 'square', .05]]); },
+    // друкарський верстат: ритмічні удари + шелест
+    press() { const p = []; for (let i = 0; i < 5; i++) p.push([i * .16, .1, .4, 260, 'lowpass', .8], [i * .16 + .05, .07, .12, 3000, 'bandpass', .8]); noise(p); this.paper(); setTimeout(() => this.stamp(), 900); },
   };
+  // друк у полях — клацання машинки
+  addEventListener('input', e => { if (e.target.matches && e.target.matches('input[type=text], textarea') && e.inputType !== 'deleteContentBackward') Sound.key(); }, true);
   return Sound;
 })();
 

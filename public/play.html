@@ -3,32 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#090b10">
+<meta name="theme-color" content="#d6bd85">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Шпигун</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Manrope:wght@500;600;700;800&family=Unbounded:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ruslan+Display&family=Oswald:wght@500;700&family=Playfair+Display:ital,wght@0,900;1,700&family=PT+Serif:ital,wght@0,400;0,700;1,400&family=PT+Mono&display=swap">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header class="top" id="top" hidden>
-  <span class="brand">ШПИ<b>Г</b>УН</span>
-  <span class="chip mono" id="codeChip"></span>
-  <span class="chip theme" id="themeChip" hidden></span>
-  <span class="grow"></span>
-  <button class="btn small" id="chatBtn" aria-label="Чат">💬<span class="badge" id="chatBadge" hidden></span></button>
-  <button class="btn small" id="roleBtn" hidden aria-label="Моя роль">🕵️ Роль</button>
-  <span id="ringSlot"></span>
+  <div class="mast">
+    <span class="issue"><small>Вихід</small><b id="codeChip"></b></span>
+    <span class="masthead">Шпигун</span>
+    <button class="iconbtn" id="chatBtn" aria-label="Чат"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><small>Чат</small><span class="badge" id="chatBadge" hidden></span></button>
+    <button class="iconbtn" id="roleBtn" hidden aria-label="Моя роль"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M7 10h6M7 14h10"/></svg><small>Роль</small></button>
+    <span id="ringSlot"></span>
+  </div>
+  <div class="strip"><span id="stripL">Вечірній випуск</span><span id="themeChip">❧ Партія ❧</span><span id="stripR">Ціна: 1 підозра</span></div>
 </header>
 <main class="wrap" id="main"></main>
 <div class="hostbar" id="hostbar" hidden><div class="inner"></div></div>
 <div class="overlay" id="overlay" hidden></div>
 <div class="chat" id="chat" hidden>
-  <div class="chat-head"><b>Чат кімнати</b><button class="btn small" id="chatClose" aria-label="Закрити">✕</button></div>
+  <div class="chat-head"><span><b>Листи до редакції</b><small>чат кімнати</small></span><button class="iconbtn" id="chatClose" aria-label="Закрити"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="chat-list" id="chatList"></div>
-  <form class="chat-form" id="chatForm"><input type="text" id="chatIn" maxlength="200" placeholder="Повідомлення…" autocomplete="off"><button class="btn primary small" type="submit">➤</button></form>
+  <form class="chat-form" id="chatForm"><input type="text" id="chatIn" maxlength="200" placeholder="Повідомлення…" autocomplete="off"><button class="btn primary small" type="submit" aria-label="Надіслати"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2-6z"/></svg></button></form>
 </div>
 <script src="/qrcode.js"></script>
 <script src="/common.js"></script>
@@ -37,6 +38,7 @@
 $('#ringSlot').innerHTML = Timer.html();
 const urlRoom = (new URLSearchParams(location.search).get('r') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
 let SES = store.get('spy_session');           // { room, token, id }
+let lastPhase = '';
 let st = null, live = null, lastKey = '', drawSent = false, canvasApi = null, buzzed = '', confettiFor = '';
 
 const api = (action, extra = {}) => postApi({ action, room: SES && SES.room, token: SES && SES.token, ...extra })
@@ -82,7 +84,7 @@ function chrome(inRoom) {
   if (!inRoom) { $('#hostbar').hidden = true; $('#overlay').hidden = true; }
 }
 
-const RULES = `<details class="rules"><summary>Як грати</summary><ol>
+const RULES = `<details class="rules"><summary><span>Правила гри</span><small>колонка редактора</small></summary><ol>
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
   <li><b>Імена по колу:</b> по черзі кожен вигадує персонажа з натяком на локацію — і бачить імена тих, хто вже назвався.</li>
   <li><b>Допит по колу:</b> кожен питає наступного гравця вголос — 2 хвилини на питання.</li>
@@ -90,26 +92,27 @@ const RULES = `<details class="rules"><summary>Як грати</summary><ol>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Кожен окремо може назвати локацію: помилився — вибуває лише він. Голосувань до трьох (перед третім — ще один випадковий раунд). Мирним треба вигнати обох.</li>
-  <li><b>Граєте не разом?</b> Ведучий вмикає «На відстані»: питання, відповіді й пояснення пишуться в грі, а для розмов є чат 💬.</li>
+  <li><b>Граєте не разом?</b> Ведучий вмикає «На відстані»: питання, відповіді й пояснення пишуться в грі, а для розмов є чат.</li>
   <li><b>Рахунок:</b> перемога шпигуна — +2 кожному шпигуну, перемога мирних — +1 кожному мирному.</li></ol></details>`;
 
 function home(msg) {
   chrome(false); lastKey = 'home';
   const saved = store.get('spy_name') || '';
-  $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:18px;padding-top:3vh">
-    <div class="center" style="display:grid;gap:14px;justify-items:center">
-      <span class="stamp">Цілком таємно</span>
-      <div class="brand big">ШПИ<b>Г</b>УН</div>
-      <p class="muted" style="max-width:34ch">Серед вас шпигун. Він знає лише тему, а ви — ще й місце. Вичисліть його, поки він не здогадався.</p>
-    </div>
+  $('#main').innerHTML = `<div class="screen-in home">
+    <div class="front-mast"><span class="fm-strip"><span>Заснована 2024</span><span>☞ Вечірній випуск ☜</span><span>Погода: туман</span></span>
+      <span class="fm-title">Вечірній</span>${ransom('ШПИГУН', 44, 'big')}<span class="fm-rule">❧ Ціна — одна підозра ❧</span></div>
+    <h1 class="headline">Серед вас — шпигун<small>Він знає лише тему, а ви — ще й місце. Вичисліть його, поки він не здогадався.</small></h1>
     ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
-    <input type="text" id="nameIn" maxlength="16" placeholder="Твоє ім'я" value="${esc(saved)}" autocomplete="off">
-    <button class="btn primary wide" id="createBtn">Створити кімнату</button>
-    <div class="divider">або</div>
-    <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
-      <input type="text" class="code-in" id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters">
-      <button class="btn" id="joinBtn">Увійти</button>
-    </div>
+    <section class="classified">
+      <span class="cl-top">Оголошення</span>
+      <label class="fld"><span>Твоє ім'я</span><input type="text" id="nameIn" maxlength="16" placeholder="Напр.: Оля" value="${esc(saved)}" autocomplete="off"></label>
+      <button class="btn primary wide" id="createBtn"><span class="star">★</span>Створити кімнату<span class="star">★</span></button>
+      <div class="divider">або увійди за паролем</div>
+      <div class="joinrow">
+        <input type="text" class="code-in" id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters" aria-label="Код кімнати">
+        <button class="btn" id="joinBtn">Увійти</button>
+      </div>
+    </section>
     ${RULES}
     <a class="linkbtn center" href="/screen">Є ноутбук чи ТВ? Відкрий великий екран →</a>
   </div>`;
@@ -139,15 +142,17 @@ async function doJoin(code, n) {
 function joinScreen(code, msg) {
   chrome(false); lastKey = 'join';
   const saved = store.get('spy_name') || '';
-  $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:18px;padding-top:4vh">
-    <div class="center" style="display:grid;gap:12px;justify-items:center">
-      <div class="brand big">ШПИ<b>Г</b>УН</div>
-      <span class="label">Тебе запросили в кімнату</span>
-      <div class="code">${esc(code)}</div>
-    </div>
-    ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
-    <input type="text" id="nameIn" maxlength="16" placeholder="Твоє ім'я" value="${esc(saved)}" autocomplete="off">
-    <button class="btn primary wide" id="joinBtn">Увійти</button>
+  $('#main').innerHTML = `<div class="screen-in home">
+    <div class="front-mast"><span class="fm-strip"><span>Термінова депеша</span><span>Вихід ${esc(code)}</span></span>
+      <span class="fm-title">Вечірній</span>${ransom('ШПИГУН', 44, 'big')}<span class="fm-rule">❧ Тебе запросили ❧</span></div>
+    <section class="classified">
+      <span class="cl-top">Запрошення</span>
+      <span class="cl-sub">Пароль до дверей:</span>
+      <span class="code">${esc(code)}</span>
+      ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
+      <label class="fld"><span>Твоє ім'я</span><input type="text" id="nameIn" maxlength="16" placeholder="Напр.: Оля" value="${esc(saved)}" autocomplete="off"></label>
+      <button class="btn primary wide" id="joinBtn"><span class="star">★</span>Увійти<span class="star">★</span></button>
+    </section>
     <button class="linkbtn" id="otherBtn">Інша кімната</button>
   </div>`;
   const go = () => { const n = $('#nameIn').value.trim(); if (!n) return $('#nameIn').focus(); store.set('spy_name', n); doJoin(code, n); };
@@ -164,7 +169,7 @@ function onState(v) {
   if (!v.me) {
     if (v.phase === 'lobby') { if (live) live.stop(); live = null; store.set('spy_session', null); const c = SES.room; SES = null; return joinScreen(c, 'Тебе немає в кімнаті. Увійди ще раз.'); }
     chrome(true); $('#hostbar').hidden = true;
-    if (lastKey !== 'spectate') { lastKey = 'spectate'; $('#main').innerHTML = `<div class="waiting screen-in" style="margin-top:10vh">Гра вже йде без тебе.<br>Зайдеш у наступну партію.</div>`; }
+    if (lastKey !== 'spectate') { lastKey = 'spectate'; $('#main').innerHTML = `<div class="waiting screen-in" style="margin-top:10vh"><b>Номер уже в друці.</b>Гра йде без тебе — зайдеш у наступну партію.</div>`; }
     return;
   }
   render();
@@ -172,19 +177,22 @@ function onState(v) {
 
 // ---------- досьє ----------
 function dossier() {
-  const m = me();
-  const body = m.isSpy
-    ? `<div class="lbl">Роль</div><div class="val spyline">ТИ — ШПИГУН</div><div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div>
-       ${m.partners.length ? `<div class="lbl">Твій напарник</div><div class="val spyline">${m.partners.map(esc).join(', ')}</div>` : ''}
-       <p style="font-weight:700">Локацію ${m.partners.length ? 'ви не знаєте' : 'ти не знаєш'}. Вдавай, що знаєш, і вгадай її.</p>`
-    : `<div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div><div class="lbl">Локація</div><div class="val">${esc(m.location)}</div>
-       <p style="font-weight:700">${st.spies > 1 ? 'Серед вас ДВА шпигуни. Вони знають лише тему й знають одне одного.' : 'Серед вас шпигун. Він знає лише тему.'}</p>`;
-  return `<div class="paper dossier" style="--rot:-1deg">${body}<span class="fingerprint">${m.isSpy ? '🕶️' : '🔎'}</span>
-    <div class="cover"><div><span class="stamp">Цілком таємно</span><br>Натисни й тримай,<br>щоб прочитати</div></div></div>`;
+  const m = me(), spy = m.isSpy, loc = spy ? '???' : m.location;
+  const longest = Math.max(...loc.split(/\s+/).map(w => w.length));
+  const fs = Math.max(26, Math.min(62, Math.floor(290 / (longest * 0.74))));
+  return `<section class="paper dossier clip" aria-label="Твоя роль">
+    <div class="d-head"><span class="d-to">Особисто<br>для: ${esc(P(m.id).name)}</span><span class="stamp">Цілком таємно</span></div>
+    <div class="d-grid"><div><span class="lbl">Рубрика</span><span class="d-v">${esc(st.theme)}</span></div>
+      <div class="r"><span class="lbl">Твоя роль</span><span class="d-v ${spy ? 'spyline' : ''}">${spy ? 'Шпигун' : 'Мирний'}</span></div></div>
+    <div class="d-loc"><span class="lbl">Місце події</span><span class="d-big ${spy ? 'spyline' : ''}" style="font-size:${fs}px">${esc(loc)}</span></div>
+    ${spy && m.partners.length ? `<div class="d-partner"><span class="lbl">Твій напарник</span><b class="spyline">${m.partners.map(esc).join(', ')}</b></div>` : ''}
+    <p class="d-note">${spy ? `Локацію ${m.partners.length ? 'ви не знаєте' : 'ти не знаєш'}. Вдавай, що знаєш, — і вгадай її.` : st.spies > 1 ? 'Серед вас ДВА шпигуни. Вони знають лише тему й знають одне одного.' : 'Серед вас шпигун. Він знає лише тему.'}</p>
+    <div class="cover"><span class="stamp">Цілком таємно</span><b>Натисни й тримай</b><small>щоб прочитати вирізку</small></div>
+  </section>`;
 }
 function holdToReveal(el) {
   if (!el) return;
-  const on = e => { e.preventDefault(); el.classList.add('open'); };
+  const on = e => { e.preventDefault(); if (!el.classList.contains('open')) Sound.paper(); el.classList.add('open'); };
   const off = () => el.classList.remove('open');
   el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off);
   el.addEventListener('pointerleave', off); el.addEventListener('pointercancel', off);
@@ -192,7 +200,8 @@ function holdToReveal(el) {
 }
 $('#roleBtn').onclick = () => {
   const o = $('#overlay');
-  o.innerHTML = dossier() + '<button class="btn ghost wide" id="ovLeave" style="margin-top:14px">Вийти з гри</button>';
+  o.innerHTML = `<div class="ov-box">${dossier()}<div class="row"><button class="btn wide" id="ovClose">Сховати</button><button class="btn ghost wide" id="ovLeave">Вийти з гри</button></div></div>`;
+  o.querySelector('#ovClose').onclick = () => { o.hidden = true; };
   o.querySelector('#ovLeave').onclick = () => { o.hidden = true; leave(); };
   o.hidden = false;
   holdToReveal(o.querySelector('.dossier'));
@@ -376,7 +385,7 @@ async function sendDrawing() {
 // ---------- екрани ----------
 const waiting = html => `<div class="waiting">${html}</div>`;
 const wait = txt => waiting(`<span>${txt}</span><div id="dots"></div>`);
-const outBanner = () => me().alive ? '' : `<div class="banner info">Тебе вигнали. Спостерігай і не підказуй 🤐</div>`;
+const outBanner = () => me().alive ? '' : `<div class="banner info">Тебе вигнали з товариства. Спостерігай і не підказуй.</div>`;
 const notice = () => st.notice ? `<div class="banner">${esc(st.notice)}</div>` : '';
 
 function screenHtml() {
@@ -384,35 +393,36 @@ function screenHtml() {
   switch (s.phase) {
     case 'lobby': {
       const n = s.players.length, host = P(s.hostId);
-      return `<div class="roomcard">
-          <span class="label">Кімната</span>
-          <div class="code">${esc(s.code)}</div>
+      return `<section class="roomcard">
+          <div class="ad"><span class="cl-top">Оголошення</span><span class="ad-sub">Шукаємо агентів!</span><span class="cl-sub">Пароль до дверей:</span>
+            <span class="code">${esc(s.code)}</span><span class="fine">☞ друзі сканують QR або відкривають посилання — з будь-якої мережі</span></div>
           <div class="qr">${qrSvg(shareLink())}</div>
-          <p class="muted" style="font-size:14px;max-width:32ch">Друзі сканують QR або відкривають посилання — з будь-якої мережі.</p>
-          <div class="row" style="width:100%"><button class="btn small" id="shareBtn">📤 Поділитися</button><button class="btn small" id="copyBtn">🔗 Скопіювати</button></div>
-        </div>
-        <div style="display:grid;gap:10px">
-          <span class="label">Гравці · ${n} з ${s.maxPlayers}${n >= 7 ? ' · <span style="color:var(--red)">2 шпигуни</span>' : ''}</span>
-          <div class="plist">${s.players.map(p => `
-            <div class="prow ${p.online ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}${p.id === m.id ? ' <span class="muted">(ти)</span>' : ''}</span>
-              ${p.id === s.hostId ? '<span class="tag">👑 ведучий</span>' : ''}
-              ${s.amHost && p.id !== m.id ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати">×</button>` : ''}</div>`).join('')}</div>
-        </div>
+          <div class="row"><button class="btn small" id="shareBtn">${ICON.share}Поділитися</button><button class="btn small" id="copyBtn">${ICON.link}Скопіювати</button></div>
+        </section>
+        <section class="present">
+          <div class="sec-head"><span>Присутні · ${n} з ${s.maxPlayers}</span>${n >= 7 ? '<small class="acc">два шпигуни</small>' : ''}</div>
+          <div class="plist">${s.players.map((p, i) => `
+            <div class="prow ${p.online ? '' : 'off'}" style="--i:${i}">${av(p)}<span class="nm">${esc(p.name)}${p.id === m.id ? ' <i>(ти)</i>' : ''}</span><span class="lead"></span>
+              ${p.id === s.hostId ? '<span class="tag">♛ редактор</span>' : p.online ? '' : '<span class="tag">поза мережею</span>'}
+              ${s.amHost && p.id !== m.id ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати ${esc(p.name)}">${ICON.close}</button>` : ''}</div>`).join('')}</div>
+        </section>
         ${R.settings(s)}
         ${R.scores(s)}
         ${notice()}
         ${s.amHost ? (n < 3 ? `<p class="muted center">Потрібно ще ${3 - n} ${3 - n === 1 ? 'гравець' : 'гравці'}, щоб почати.</p>` : '')
-                   : `<div class="waiting">Чекаємо, поки <b>${esc(host.name)}</b> почне гру</div>`}
+                   : `<div class="waiting">Чекаємо, поки <b>${esc(host.name)}</b> відкриє засідання</div>`}
         ${RULES}
-        <p class="muted center" style="font-size:14px">Є ноутбук чи ТВ? Відкрий на ньому <b>${esc(location.host)}/screen</b> і введи код <b>${esc(s.code)}</b> — там буде видно все разом.</p>
-        <button class="linkbtn" id="soundBtn">${Sound.on ? '🔊 Звук увімкнено' : '🔇 Звук вимкнено'}</button>
-        <button class="linkbtn" id="leaveBtn">Вийти з кімнати</button>`;
+        <p class="fine center">Є ноутбук чи ТВ? Відкрий на ньому <b>${esc(location.host)}/screen</b> і введи код <b>${esc(s.code)}</b> — там буде видно все разом.</p>
+        <div class="row links"><button class="linkbtn" id="soundBtn">${Sound.on ? ICON.sound + 'Звук увімкнено' : ICON.mute + 'Звук вимкнено'}</button>
+        <button class="linkbtn" id="leaveBtn">${ICON.door}Вийти з кімнати</button></div>`;
     }
     case 'roles':
-      return `${R.phaseTag(s)}<h1>Твоє досьє</h1><p class="muted">Натисни й тримай, щоб прочитати. Не показуй іншим.</p>
+      return `${R.phaseTag(s, 'Етап I · Ролі')}<h1 class="headline">${ransom('Секретно!', 34)}<span>Пакет доставлено</span>
+        <small>Серед гостей шпигун — він знає лише тему. Не показуй цю вирізку нікому.</small></h1>
         ${dossier()}
-        ${m.mine ? wait('Чекаємо, поки всі прочитають…') : `<button class="btn primary wide" data-act="ready">Я запам'ятав</button><div id="dots"></div>`}
-        <button class="linkbtn" id="leaveBtn">Вийти з гри</button>`;
+        <p class="tip"><b>Порада редакції.</b> Відповідай так, щоб свої впізнали місце, а шпигун — ні. Надто точно — видаси локацію, надто розмито — тебе запідозрять.</p>
+        ${m.mine ? wait('Чекаємо, поки всі прочитають…') : `<button class="btn primary wide" data-act="ready"><span class="star">★</span>Я запам'ятав<span class="star">★</span></button><div id="dots"></div>`}
+        <button class="linkbtn" id="leaveBtn">${ICON.door}Вийти з гри</button>`;
     case 'names': {
       const head = R.phaseTag(s, `Імена · ${Math.min(s.idx + 1, s.order.length)} з ${s.order.length}`);
       if (cur === m.id) return `${head}<h1>Твоя черга: хто ти?</h1>
@@ -436,7 +446,7 @@ function screenHtml() {
       }
       if (cur === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Питай уголос</h1>
         <p class="muted center">У вас до 2 хвилин. Коли відповіли — тисни кнопку.</p><button class="btn ok wide" data-act="asked">Відповіли ✓</button>${R.order(s)}`;
-      if (s.target === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами 😏</p>${R.order(s)}`;
+      if (s.target === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами.</p>${R.order(s)}`;
       return `${head}${outBanner()}${R.duel(s, m.id)}<p class="muted center">Слухай уважно: хто відповідає надто розмито?</p>${R.order(s)}`;
     }
     case 'drawing':
@@ -446,8 +456,8 @@ function screenHtml() {
         <p class="muted">${m.isSpy ? `Ти шпигун — малюй щось, що пасує до теми «${esc(s.theme)}».` : 'Так, щоб свої впізнали, а шпигун — ні.'}</p>
         <div class="canvaswrap"><canvas id="cv"></canvas></div>
         <div class="tools">${['#1d1b18', '#e3412a', '#f08a24', '#e8b62c', '#2f9d55', '#7cc6f2', '#2f6fd2', '#8e4ec6', '#f4a6c0', '#f1c9a5', '#8a5a2b', '#9a9a9a', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}</div>
-        <div class="tools"><button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button><button class="sz" id="fill">🪣 Заливка</button>
-          <span class="grow"></span><button class="sz" id="undo">↶</button><button class="sz" id="clear">Стерти</button></div>
+        <div class="tools"><button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button><button class="sz" id="fill">${ICON.fill}Заливка</button>
+          <span class="grow"></span><button class="sz" id="undo" aria-label="Скасувати">${ICON.undo}</button><button class="sz" id="clear">${ICON.trash}Стерти</button></div>
         <button class="btn primary wide" id="send">Здати малюнок</button>`;
     case 'drawReveal':
       return `${R.phaseTag(s)}<h1>Галерея доказів</h1><p class="muted">Чий малюнок підозрілий? Торкнись, щоб збільшити.</p>${R.gallery(s)}`;
@@ -476,7 +486,7 @@ function screenHtml() {
       return `${R.phaseTag(s)}<h1>Три емодзі</h1>
         <p class="muted">${m.isSpy ? `Ти шпигун. Підбери 3 емодзі, які пасують до теми «${esc(s.theme)}».` : 'Опиши локацію трьома емодзі. Так, щоб свої впізнали, а шпигун — ні.'}</p>
         <div class="emo-slots" id="slots"><span></span><span></span><span></span></div>
-        <input type="text" id="txt" maxlength="60" placeholder="Відкрий емодзі на клавіатурі 😀" autocomplete="off" inputmode="text">
+        <input type="text" id="txt" maxlength="60" placeholder="Відкрий емодзі на клавіатурі" autocomplete="off" inputmode="text">
         <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
     }
     case 'emojiReveal':
@@ -487,8 +497,8 @@ function screenHtml() {
       return `${R.phaseTag(s)}<h1>Склади сцену</h1>
         <p class="muted">${m.isSpy ? `Ти шпигун. Склади щось, що пасує до теми «${esc(s.theme)}».` : 'Від 1 до 5 наліпок: як виглядає це місце? Двома пальцями — крутити й збільшувати.'}</p>
         <div class="scenewrap"><canvas id="sc"></canvas></div>
-        <div class="seltools"><button class="sz on" data-mode="move">✋ Наліпки</button><button class="sz" data-mode="draw">✏️ Малювати</button><span class="chip mono" id="scCount">0 / 5</span></div>
-        <div class="seltools" id="seltools" hidden><button class="sz" data-st="rl">⟲</button><button class="sz" data-st="rr">⟳</button><button class="sz" data-st="sm">➖</button><button class="sz" data-st="bg">➕</button><button class="sz" data-st="del">🗑</button></div>
+        <div class="seltools"><button class="sz on" data-mode="move">${ICON.hand}Наліпки</button><button class="sz" data-mode="draw">${ICON.pen}Малювати</button><span class="chip" id="scCount">0 / 5</span></div>
+        <div class="seltools" id="seltools" hidden><button class="sz" data-st="rl" aria-label="Повернути ліворуч">${ICON.rl}</button><button class="sz" data-st="rr" aria-label="Повернути праворуч">${ICON.rr}</button><button class="sz" data-st="sm" aria-label="Зменшити">${ICON.minus}</button><button class="sz" data-st="bg" aria-label="Збільшити">${ICON.plus}</button><button class="sz" data-st="del" aria-label="Видалити">${ICON.trash}</button></div>
         <div class="seltools" id="inkcolors" hidden>${['#1d1b18', '#e3412a', '#2f6fd2', '#2f9d55', '#e8b62c', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-ink="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}<button class="sz" id="inkClear">Стерти</button></div>
         <div class="palette" id="pal">${s.stickers.map(e => `<button data-e="${e}">${e}</button>`).join('')}</div>
         <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
@@ -510,7 +520,7 @@ function screenHtml() {
       if (s.stage === 'ask') {
         if (m.mine) return `${R.phaseTag(s)}${wait('Записку відправлено. Чекаємо інших…')}`;
         return `${R.phaseTag(s)}<h1>Анонімна записка</h1>
-          <p class="muted">Напиши питання про локацію. Його отримає випадковий гравець, і ніхто не дізнається, що це ти.${m.isSpy ? ' Ти шпигун — питання може тобі щось підказати 😉' : ''}</p>
+          <p class="muted">Напиши питання про локацію. Його отримає випадковий гравець, і ніхто не дізнається, що це ти.${m.isSpy ? ' Ти шпигун — відповідь на твоє питання може щось підказати.' : ''}</p>
           <textarea id="rtxt" maxlength="160" rows="3" placeholder="Напр.: Що ти тут боїшся загубити?"></textarea>
           <button class="btn primary wide" id="rsend" data-a="note">Відправити</button><div id="dots"></div>`;
       }
@@ -526,22 +536,23 @@ function screenHtml() {
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
-      return `${R.phaseTag(s, s.voteNo > 1 ? 'Голосування №' + s.voteNo : 'Голосування')}${notice()}<h1>Хто шпигун?</h1>
-        <div class="list">${cands.map(p => `<button class="btn opt ${m.vote === p.id ? 'sel' : ''}" data-vote="${p.id}">${av(p)}<span>${esc(dn(p))}</span></button>`).join('')}</div>
-        <p class="muted center">${m.vote ? 'Голос прийнято. Поки інші думають, можна змінити.' : 'Голосування таємне.'}</p><div id="dots"></div>`;
+      return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${notice()}<div class="wanted-head"><span class="kicker">★ ★ ★ Увага ★ ★ ★</span>
+        <h1>${ransom('Розшукується', 27)}</h1><span class="deck-line">торкнись плаката того, хто, на твою думку, шпигун</span></div>
+        <div class="wanted-grid">${cands.map((p, i) => R.poster(s, p, { tag: 'button', sel: m.vote === p.id, attr: `data-vote="${p.id}" aria-pressed="${m.vote === p.id}"`, stamp: m.vote === p.id ? 'Твій голос' : '', i })).join('')}</div>
+        <div class="tally-line"><span>${m.vote ? 'Голос прийнято' : 'Голосування таємне'}</span><span class="hatch"></span><span>${m.vote ? 'можна змінити' : 'обери плакат'}</span></div><div id="dots"></div>`;
     }
     case 'voteResult': {
       const r = s.res || {}, out = r.out ? P(r.out) : null;
-      return `${R.phaseTag(s)}<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>${r.out === m.id ? 'Тебе вигнали' : `Вигнали: ${esc(dn(out))}`}</h1>` : '<h1>Нікого не вигнали</h1>'}
-        <p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>${R.bars(s)}`;
+      return `${R.phaseTag(s, 'Вирок')}<div class="verdict-out">${out ? `${R.poster(s, out, { stamp: 'Вигнано' })}<h1 class="headline">${r.out === m.id ? 'Тебе вигнали' : `Вигнали: ${esc(dn(out))}`}</h1>` : `<h1 class="headline">${ransom('Нікого', 32)}<span>не вигнали</span></h1>`}
+        <p class="deck-line">Хто він насправді — редакція повідомить пізніше.</p></div>${R.bars(s)}`;
     }
     case 'guess':
-      if (m.canGuess) return `${R.phaseTag(s)}<span class="stamp">Шанс шпигуна</span><h1>Назви локацію</h1>
+      if (m.canGuess) return `${R.phaseTag(s)}<span class="stamp">Шанс шпигуна</span><h1 class="headline">Назви локацію</h1>
         <p class="muted">Вгадаєш — перемога${m.partners.length ? ' для обох' : ''}. Помилишся — ${m.partnerIn ? 'вибуваєш ти, а напарник грає далі' : 'програш'}. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.${m.partnerIn ? ' Напарник вирішує окремо.' : ''}</p>
         <input type="text" id="txt" maxlength="60" placeholder="Локація…" autocomplete="off">
         <button class="btn primary wide" id="send">Ризикнути</button><button class="btn ghost wide" data-act="skip">Не ризикувати</button>`;
       if (m.isSpy) return `${R.phaseTag(s)}${waiting(m.guessed ? `Твоя здогадка: «<b>${esc(m.guessed)}</b>».<br>Чекаємо напарника…` : 'Чекаємо, що вирішить напарник…')}`;
-      return `${R.phaseTag(s)}${outBanner()}${waiting(`<span style="font-size:42px">🕶️</span><b>${s.spies > 1 ? 'Шпигуни вирішують' : 'Шпигун вирішує'}, чи називати локацію…</b>`)}`;
+      return `${R.phaseTag(s)}${outBanner()}${waiting(`<b>${s.spies > 1 ? 'Шпигуни вирішують' : 'Шпигун вирішує'}, чи називати локацію…</b>Тримай язик за зубами.`)}`;
     case 'verdict':
       if (m.isSpy) return `${R.phaseTag(s)}${waiting(`${s.guessBy === m.id ? 'Ти сказав' : 'Напарник сказав'} «<b>${esc(s.guess)}</b>».<br>Мирні вирішують…`)}`;
       if (m.verdict !== null) return `${R.phaseTag(s)}${wait(`Твоє рішення: <b>${m.verdict ? 'зарахувати' : 'не зараховувати'}</b>. Чекаємо інших…`)}`;
@@ -549,7 +560,7 @@ function screenHtml() {
         <div class="paper" style="--rot:-1deg"><div class="lbl">Здогадка</div><div class="val">«${esc(s.guess)}»</div>
         <div class="lbl">Правильна локація</div><div class="val">${esc(m.location)}</div></div>
         <p class="muted">Чесно: це та сама локація?</p>
-        <div class="row"><button class="btn primary" data-verdict="1">Так, вгадав</button><button class="btn" data-verdict="0">Ні</button></div>`;
+        <div class="row"><button class="btn primary" data-verdict="1">Так, вгадав</button><button class="btn red" data-verdict="0">Ні, не те</button></div>`;
     case 'words':
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть слова…')}`;
       if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твоє слово</div><div class="val">${esc(m.mine)}</div></div>${wait('Чекаємо інших…')}`;
@@ -561,14 +572,12 @@ function screenHtml() {
       return `${R.phaseTag(s)}<h1>Слова на стіл</h1>${R.words(s)}`;
     case 'end': {
       const e = s.end, spyWon = e.winner === 'spy', iWon = m.isSpy ? spyWon : !spyWon;
-      return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
-        <h1>${iWon ? '🎉 Ти переміг!' : 'Цього разу — поразка'}</h1><p class="muted">${REASON[e.reason] || ''}</p></div>
-        ${R.endReveal(s)}
+      return `${R.front(s, m.id)}
         ${R.scores(s)}
         ${R.votes(s)}
         ${s.amHost ? R.settings(s) : ''}
         ${s.amHost ? '' : waiting(`Нову партію почне <b>${esc(P(s.hostId).name)}</b>`)}
-        <button class="linkbtn" id="leaveBtn">Вийти з кімнати</button>`;
+        <button class="linkbtn" id="leaveBtn">${ICON.door}Вийти з кімнати</button>`;
     }
   }
   return '';
@@ -579,16 +588,16 @@ const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneR
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';
-  const tag = '<span class="tag">👑<br>ведучий</span>';
+  const tag = '<span class="tag">♛ Ти —<br>редактор</span>';
   if (s.phase === 'lobby') {
     const n = s.players.filter(p => p.online).length;
-    return `${tag}<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`;
+    return `${tag}<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}><span class="star">☞</span>Відкрити засідання · ${n}</button>`;
   }
-  if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
+  if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start"><span class="star">★</span>Новий номер</button>`;
   if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
   if (s.phase === 'verdict') return '';   // рішення мирних не пропускається
   const label = ['questions', 'items', 'names'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
-  return `${tag}<button class="btn ghost small" data-host="next">${label}</button>`;
+  return `${tag}<button class="btn ghost red small" data-host="next">${label} →</button>`;
 }
 
 // ---------- малювання екрана ----------
@@ -597,7 +606,9 @@ function render() {
   chrome(true);
   $('#codeChip').textContent = s.code;
   $('#top').classList.toggle('ingame', s.phase !== 'lobby');
-  const th = $('#themeChip'); th.hidden = !s.theme; th.textContent = s.theme || '';
+  $('#themeChip').textContent = s.theme ? `❧ Рубрика: ${s.theme} ❧` : '❧ Збір товариства ❧';
+  $('#stripL').textContent = PHASE_NAME[s.phase] || 'Вечірній випуск';
+  const myChar = P(m.id).char; $('#stripR').textContent = myChar ? 'Ти: ' + myChar : 'Ціна: 1 підозра';
   $('#roleBtn').hidden = ['lobby', 'end'].includes(s.phase) || (s.phase === 'roles' && !m.mine);
   if (s.phase !== 'drawing') { drawSent = false; canvasApi = null; }
   if (s.phase !== 'scene') { sceneSent = false; sceneApi = null; }
@@ -609,7 +620,9 @@ function render() {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
     lastKey = key;
     const typed = keepFocus ? $('#txt').value : null;
-    $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:18px">${screenHtml()}</div>`;
+    const phaseKey = s.game + s.phase + (s.stage || '');
+    if (phaseKey !== lastPhase) { if (lastPhase) s.phase === 'end' ? Sound.press() : REVEAL.includes(s.phase) ? Sound.reveal() : Sound.paper(); lastPhase = phaseKey; }
+    $('#main').innerHTML = `<div class="screen-in page-${s.phase}">${screenHtml()}</div>`;
     bind();
     if (typed != null && $('#txt')) { $('#txt').value = typed; $('#txt').focus(); }
     if (s.phase === 'end' && confettiFor !== s.game) {
@@ -644,8 +657,8 @@ function bind() {
   const main = $('#main');
   main.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.act); });
   main.querySelectorAll('[data-target]').forEach(b => b.onclick = () => api('target', { target: b.dataset.target }));
-  main.querySelectorAll('[data-vote]').forEach(b => b.onclick = () => api('vote', { target: b.dataset.vote }));
-  main.querySelectorAll('[data-verdict]').forEach(b => b.onclick = () => api('verdict', { yes: b.dataset.verdict === '1' }));
+  main.querySelectorAll('[data-vote]').forEach(b => b.onclick = () => { Sound.stamp(); buzz(25); api('vote', { target: b.dataset.vote }); });
+  main.querySelectorAll('[data-verdict]').forEach(b => b.onclick = () => { Sound.stamp(); api('verdict', { yes: b.dataset.verdict === '1' }); });
   main.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { buzz(30); api('pick', { index: +b.dataset.pick }); });
   main.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => api('kick', { target: b.dataset.kick }));
   R.bindSettings(main, st, api);
@@ -715,8 +728,8 @@ function renderChat() {
   chatHeard = last;
   if (chatOpen && last !== chatDrawn) {
     const el = $('#chatList'), stick = chatDrawn < 0 || el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    el.innerHTML = list.length ? list.map(x => { const mine = m && x.from === m.id; return `<div class="msg ${mine ? 'me' : ''}">${mine ? '' : av({ name: x.who })}
-      <div class="body">${mine ? '' : `<span class="who">${esc(x.who)}</span>`}<div class="txt">${esc(x.text)}</div></div></div>`; }).join('') : '<p class="muted center">Поки тихо. Напиши першим 👋</p>';
+    el.innerHTML = list.length ? list.map((x, xi) => { const mine = m && x.from === m.id; return `<div class="msg ${mine ? 'me' : ''}">${mine ? '' : av({ name: x.who })}
+      <div class="body">${mine ? '' : `<span class="who">${esc(x.who)}</span>`}<div class="txt">${esc(x.text)}</div></div></div>`; }).join('') : '<p class="fine center">Поки тихо. Напиши першим.</p>';
     if (stick) el.scrollTop = el.scrollHeight;
     chatDrawn = last;
   }
