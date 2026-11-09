@@ -105,7 +105,7 @@ const R = {
   words(st, field = 'words', cls = '') {
     return `<div class="cards">${R.alive(st).map((p, i) => `
       <div class="card" style="animation-delay:${i * .12}s"><div class="paper" style="${rot(i)}">
-        <div class="who">${av(p)}${esc(p.char || p.name)}</div><div class="big ${cls}">${esc((st[field] || {})[p.id] || '—')}</div></div></div>`).join('')}</div>`;
+        <div class="who">${av(p)}${esc(p.char || p.name)}</div>${cls === 'emo' ? `<div class="emo-row">${((st[field] || {})[p.id] || '').split(' ').filter(Boolean).map(e => `<span>${esc(e)}</span>`).join('') || '—'}</div>` : `<div class="big">${esc((st[field] || {})[p.id] || '—')}</div>`}</div></div>`).join('')}</div>`;
   },
   gallery(st) {
     return `<div class="gallery">${R.alive(st).map((p, i) => {

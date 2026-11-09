@@ -327,3 +327,8 @@ details.rules b { color: var(--fg); }
 .emo-slots span{width:72px;height:72px;border-radius:18px;border:2px dashed var(--line, #333);display:grid;place-items:center;font-size:42px;transition:transform .15s}
 .emo-slots span.on{border-style:solid;transform:scale(1.06)}
 .big.emo,.val.emo{font-size:clamp(26px,8vw,40px);letter-spacing:0;line-height:1.2;white-space:nowrap}
+
+.emo-row{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:10px;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.emo-row span{display:grid;place-items:center;aspect-ratio:1;font-size:clamp(26px,9vw,40px);line-height:1;background:rgba(35,29,20,.07);border-radius:12px;overflow:hidden}
+.tv .emo-row span{font-size:46px}
+.val.emo,.emo-slots span{font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}

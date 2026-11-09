@@ -114,11 +114,11 @@ function createRoom(usedInit) {
   function questionsTimeout() { nextAsk(); }
   function nextAsk() { S.idx++; if (S.idx >= S.order.length) toExtra(); else startAsk(); }
 
-  // після допиту — малювання або предмети, по черзі між партіями; потім емодзі
-  let drawNext = Math.random() < .5;
+  // після допиту — малювання або предмети, по черзі між партіями; потім емодзі.
+  // Черговість рахуємо від кількості зіграних локацій (її пам'ятає браузер ведучого),
+  // тож вона не збивається, навіть якщо кімнату створили заново чи сервер перезапустився.
   function toExtra() {
-    S.extras = [drawNext ? 'drawing' : 'items'];
-    drawNext = !drawNext;
+    S.extras = [used.size % 2 ? 'drawing' : 'items'];
     S.extraIdx = 0;
     startExtra();
   }
