@@ -100,20 +100,20 @@ function view() {
     case 'names': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><h1>Хто ви сьогодні?</h1><p class="muted">Кожен вигадує персонажа з натяком на локацію.</p></div>`;
     case 'namesReveal': return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.duel(s)}
-      <p class="muted center" style="font-size:20px">${s.stage === 'pick' ? `${esc(P(cur).name)} обирає, кого спитати` : 'Питання й відповідь — уголос. До 2 хвилин.'}</p>${R.order(s)}`;
+      <p class="muted center" style="font-size:20px">${s.stage === 'pick' ? `${esc(dn(P(cur)))} обирає, кого спитати` : 'Питання й відповідь — уголос. До 2 хвилин.'}</p>${R.order(s)}`;
     case 'drawing': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🎨</span><h1>Малюємо локацію</h1><p class="muted">Потім усі малюнки з'являться тут.</p></div>`;
     case 'drawReveal': return `${R.phaseTag(s)}<h1>Галерея доказів</h1>${R.gallery(s)}`;
     case 'items': {
       const it = s.items.find(x => x.by === cur && s.stage === 'explain');
       return `${R.phaseTag(s, `Предмети · ${s.idx + 1} з ${s.order.length}`)}
-        <h1>${it ? `${esc(P(cur).name)}: ${it.e} ${esc(it.n)}` : `${esc(P(cur).name)} обирає предмет`}</h1>
+        <h1>${it ? `${esc(dn(P(cur)))}: ${it.e} ${esc(it.n)}` : `${esc(dn(P(cur)))} обирає предмет`}</h1>
         ${it ? '<p class="muted" style="font-size:20px">Як це пов\'язано з локацією? До 2 хвилин.</p>' : ''}${R.items(s, { current: it ? s.items.indexOf(it) : -1 })}`;
     }
     case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
     case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
       <span class="stamp big">Голосування${s.voteNo === 2 ? ' №2' : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
     case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
-      return `<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>Вигнали: ${esc(out.name)}</h1>` : '<h1>Нікого не вигнали</h1>'}<p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>
+      return `<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>Вигнали: ${esc(dn(out))}</h1>` : '<h1>Нікого не вигнали</h1>'}<p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>
         <div style="max-width:760px;width:100%;margin:0 auto">${R.bars(s)}</div>`; }
     case 'guess': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:6vh"><span style="font-size:90px">🕶️</span><h1>Шанс шпигуна</h1>
       <p class="muted" style="font-size:20px">Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.</p></div>`;
@@ -136,6 +136,7 @@ function actions() {
   if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`; }
   if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
+  if (st.phase === 'verdict') return '';
   return `<button class="btn ghost small" data-host="next">${st.phase === 'questions' || st.phase === 'items' ? 'Пропустити хід' : 'Не чекати'}</button>`;
 }
 
@@ -154,7 +155,7 @@ function render() {
     if (s.phase === 'end') confetti();
   }
   const done = new Set(s.done || []);
-  const foot = s.phase === 'lobby' ? '' : s.players.map(p => `<div class="prow ${done.has(p.id) ? 'done' : ''} ${p.alive ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}</span></div>`).join('');
+  const foot = s.phase === 'lobby' ? '' : s.players.map(p => `<div class="prow ${done.has(p.id) ? 'done' : ''} ${p.alive ? '' : 'off'}">${av(p)}<span class="nm">${esc(dn(p))}</span></div>`).join('');
   const a = actions();
   $('#foot').hidden = !foot && !a;
   $('#foot').innerHTML = foot + (a ? `<div class="actions">${a}</div>` : '');

@@ -9,9 +9,11 @@ const isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
 
 // колір аватара з імені
 function hueOf(s) { let h = 0; for (const ch of String(s)) h = (h * 31 + ch.codePointAt(0)) % 360; return h; }
+// ім'я в грі: після раунду імен — ім'я персонажа, до того — справжнє
+const dn = p => (p && (p.char || p.name)) || '?';
 function av(p, cls = '') {
-  const n = (p && p.name) || '?';
-  return `<span class="av ${cls}" style="--h:${hueOf(n)}">${esc([...n.trim()][0] || '?').toUpperCase()}</span>`;
+  const n = (p && p.name) || '?', shown = dn(p);
+  return `<span class="av ${cls}" style="--h:${hueOf(n)}">${esc([...shown.trim()][0] || '?').toUpperCase()}</span>`;
 }
 
 // ---------- зв'язок із сервером: SSE, а якщо проксі його гальмує — опитування ----------
@@ -132,14 +134,14 @@ const R = {
   },
   duel(st, meId) {
     const a = R.P(st, st.order[st.idx]), b = st.target ? R.P(st, st.target) : null;
-    const nameOf = p => p.id === meId ? 'Ти' : esc(p.name);
+    const nameOf = p => p.id === meId ? 'Ти' : esc(dn(p));
     return `<div class="duel">
-      <div class="who">${av(a, 'lg')}${nameOf(a)}<small>${esc(a.char)}</small></div>
+      <div class="who">${av(a, 'lg')}${nameOf(a)}</div>
       <div class="arrow">${b ? '→' : '…'}</div>
-      <div class="who">${b ? `${av(b, 'lg')}${nameOf(b)}<small>${esc(b.char)}</small>` : '<span class="av lg" style="background:var(--panel2)">?</span><small>обирає</small>'}</div></div>`;
+      <div class="who">${b ? `${av(b, 'lg')}${nameOf(b)}` : '<span class="av lg" style="background:var(--panel2)">?</span><small>обирає</small>'}</div></div>`;
   },
   order(st) {
-    return `<div class="order">${st.order.map((id, i) => `<span class="${i === st.idx ? 'cur' : i < st.idx ? 'past' : ''}">${esc(R.P(st, id).name)}</span>`).join('')}</div>`;
+    return `<div class="order">${st.order.map((id, i) => `<span class="${i === st.idx ? 'cur' : i < st.idx ? 'past' : ''}">${esc(dn(R.P(st, id)))}</span>`).join('')}</div>`;
   },
   bars(st) {
     const r = st.res || { counts: {} };
@@ -151,7 +153,7 @@ const R = {
   },
   doneDots(st, ids) {
     const done = new Set(st.done || []);
-    return `<div class="dots">${ids.map(id => { const p = R.P(st, id); return `<span title="${esc(p.name)}">${av(p, done.has(id) ? 'on' : '')}</span>`; }).join('')}</div>`;
+    return `<div class="dots">${ids.map(id => { const p = R.P(st, id); return `<span title="${esc(dn(p))}">${av(p, done.has(id) ? 'on' : '')}</span>`; }).join('')}</div>`;
   },
   endReveal(st) {
     const e = st.end, spies = e.spyIds.map(id => R.P(st, id));
@@ -160,7 +162,8 @@ const R = {
         <div class="lbl">Локація</div><div class="val">${esc(e.location)}</div></div>
       <div class="paper" style="${rot(1)}"><div class="lbl">${spies.length > 1 ? 'Шпигуни' : 'Шпигун'}</div>
         ${spies.map(spy => `<div class="val" style="display:flex;align-items:center;gap:10px;margin-bottom:4px">${av(spy, 'lg')}<span>${esc(spy.name)}${spy.char ? `<br><span style="font:600 14px var(--body);opacity:.7">«${esc(spy.char)}»</span>` : ''}</span></div>`).join('')}
-        ${e.guess ? `<div class="lbl" style="margin-top:12px">Здогадка${e.guessBy ? ' · ' + esc(R.P(st, e.guessBy).name) : ''}</div><div class="val" style="font-size:20px">«${esc(e.guess)}»</div>` : ''}</div></div>`;
+        ${e.guess ? `<div class="lbl" style="margin-top:12px">Здогадка${e.guessBy ? ' · ' + esc(dn(R.P(st, e.guessBy))) : ''}</div><div class="val" style="font-size:20px">«${esc(e.guess)}»</div>` : ''}
+        ${e.tally ? `<div class="lbl">Рішення мирних</div><div class="val" style="font-size:20px">✓ ${e.tally.yes} · ✗ ${e.tally.no}</div>` : ''}</div></div>`;
   },
 };
 

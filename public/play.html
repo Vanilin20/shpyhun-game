@@ -270,11 +270,11 @@ function screenHtml() {
     case 'questions': {
       const head = R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`);
       if (cur === m.id && s.stage === 'pick') return `${head}<h1>Твоя черга питати</h1><p class="muted">Кого допитуємо?</p>
-        <div class="list">${R.alive(s).filter(p => p.id !== m.id).map(p => `<button class="btn opt" data-target="${p.id}">${av(p)}<span>${esc(p.name)}<span class="sub">${esc(p.char)}</span></span></button>`).join('')}</div>`;
+        <div class="list">${R.alive(s).filter(p => p.id !== m.id).map(p => `<button class="btn opt" data-target="${p.id}">${av(p)}<span>${esc(dn(p))}</span></button>`).join('')}</div>`;
       if (cur === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Питай уголос</h1>
         <p class="muted center">У вас до 2 хвилин. Коли відповіли — тисни кнопку.</p><button class="btn ok wide" data-act="asked">Відповіли ✓</button>${R.order(s)}`;
       if (s.target === m.id && s.stage === 'ask') return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами 😏</p>${R.order(s)}`;
-      return `${head}${outBanner()}${R.duel(s, m.id)}<p class="muted center">${s.stage === 'pick' ? `<b>${esc(P(cur).name)}</b> обирає, кого спитати` : 'Слухай уважно: хто відповідає надто розмито?'}</p>${R.order(s)}`;
+      return `${head}${outBanner()}${R.duel(s, m.id)}<p class="muted center">${s.stage === 'pick' ? `<b>${esc(dn(P(cur)))}</b> обирає, кого спитати` : 'Слухай уважно: хто відповідає надто розмито?'}</p>${R.order(s)}`;
     }
     case 'drawing':
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші малюють…')}`;
@@ -298,8 +298,8 @@ function screenHtml() {
         <h1 class="center">Розповідай уголос</h1><p class="muted center">Як цей предмет пов'язаний з локацією? До 2 хвилин.</p>
         <button class="btn ok wide" data-act="explained">Розповів ✓</button>`;
       if (it) return `${head}${outBanner()}<div class="hero-item"><span class="e">${it.e}</span><span class="n">${esc(it.n)}</span>
-        <span class="muted" style="display:flex;align-items:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(P(cur).name)}</b> розповідає</span></div>${R.items(s, { current: curIdx })}`;
-      return `${head}${outBanner()}<p class="muted center"><b style="color:var(--fg)">${esc(P(cur).name)}</b> обирає предмет…</p>${R.items(s)}`;
+        <span class="muted" style="display:flex;align-items:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(dn(P(cur)))}</b> розповідає</span></div>${R.items(s, { current: curIdx })}`;
+      return `${head}${outBanner()}<p class="muted center"><b style="color:var(--fg)">${esc(dn(P(cur)))}</b> обирає предмет…</p>${R.items(s)}`;
     }
     case 'itemsDone':
       return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
@@ -307,12 +307,12 @@ function screenHtml() {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
       return `${R.phaseTag(s, s.voteNo === 2 ? 'Голосування №2' : 'Голосування')}${notice()}<h1>Хто шпигун?</h1>
-        <div class="list">${cands.map(p => `<button class="btn opt ${m.vote === p.id ? 'sel' : ''}" data-vote="${p.id}">${av(p)}<span>${esc(p.name)}<span class="sub">${esc(p.char)}</span></span></button>`).join('')}</div>
+        <div class="list">${cands.map(p => `<button class="btn opt ${m.vote === p.id ? 'sel' : ''}" data-vote="${p.id}">${av(p)}<span>${esc(dn(p))}</span></button>`).join('')}</div>
         <p class="muted center">${m.vote ? 'Голос прийнято. Поки інші думають, можна змінити.' : 'Голосування таємне.'}</p><div id="dots"></div>`;
     }
     case 'voteResult': {
       const r = s.res || {}, out = r.out ? P(r.out) : null;
-      return `${R.phaseTag(s)}<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>${r.out === m.id ? 'Тебе вигнали' : `Вигнали: ${esc(out.name)}`}</h1>` : '<h1>Нікого не вигнали</h1>'}
+      return `${R.phaseTag(s)}<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>${r.out === m.id ? 'Тебе вигнали' : `Вигнали: ${esc(dn(out))}`}</h1>` : '<h1>Нікого не вигнали</h1>'}
         <p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>${R.bars(s)}`;
     }
     case 'guess':
@@ -362,6 +362,7 @@ function hostbarHtml() {
   }
   if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
+  if (s.phase === 'verdict') return '';   // рішення мирних не пропускається
   const label = s.phase === 'questions' || s.phase === 'items' ? 'Пропустити хід' : 'Не чекати';
   return `${tag}<button class="btn ghost small" data-host="next">${label}</button>`;
 }

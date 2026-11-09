@@ -23,7 +23,7 @@ const SEC = {
   roles: 45, names: 75,
   pick: 25, question: 120,            // вибір, кого спитати / питання й відповідь
   drawing: 70, itemPick: 25, explain: 120,
-  vote: 45, guess: 25, verdict: 30, words: 40,
+  vote: 45, guess: 25, verdict: 45, words: 40,
   // показ результатів (ведучий може натиснути «Далі» раніше)
   namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25,
 };
@@ -72,7 +72,7 @@ function createRoom(usedInit) {
   const byId = id => players.find(p => p.id === id);
   const byToken = t => (t ? players.find(p => p.token === t) : null);
   const alive = () => players.filter(p => p.alive);
-  const nm = id => (byId(id) || {}).name || '?';
+  const nm = id => { const x = byId(id); return x ? (x.char || x.name) : '?'; };   // ім'я персонажа, коли воно вже є
 
   function setTimer(sec, fn) {
     clearTimeout(timer);
@@ -90,7 +90,7 @@ function createRoom(usedInit) {
     players.forEach(p => { p.alive = true; p.char = ''; });
     clearTimer();
     const spyIds = shuffle(players).slice(0, players.length >= TWO_SPIES_FROM ? 2 : 1).map(p => p.id);
-    S = { phase: 'roles', theme: pair.theme, location: pair.loc, spyIds, sub: {}, voteNo: 1, notice: '', endsAt: 0, game: rid(3) };
+    S = { tally: null, phase: 'roles', theme: pair.theme, location: pair.loc, spyIds, sub: {}, voteNo: 1, notice: '', endsAt: 0, game: rid(3) };
     setTimer(SEC.roles, toNames);
     return null;
   }
@@ -169,8 +169,10 @@ function createRoom(usedInit) {
   const judges = () => players.filter(p => !isSpy(p.id));
   function finishVerdict() {
     const v = Object.values(S.verdict);
-    const yes = v.filter(Boolean).length;
-    if (yes > v.length - yes) endGame('spy', 'guessed'); else endGame('town', 'wrong');
+    const yes = v.filter(Boolean).length, no = v.length - yes;
+    S.tally = { yes, no };
+    // більшість тих, хто проголосував; при нічиї — на користь шпигуна
+    if (yes > 0 && yes >= no) endGame('spy', 'guessed'); else endGame('town', 'wrong');
   }
   function resolveNoGuess() {
     const out = S.res && S.res.out;
@@ -203,7 +205,7 @@ function createRoom(usedInit) {
       case 'vote': return tally();
       case 'voteResult': return toGuess();
       case 'guess': return afterGuess();
-      case 'verdict': return finishVerdict();
+      case 'verdict': return;   // рішення мирних не можна пропустити
       case 'words': return revealWords();
       case 'wordsReveal': return toVote();
     }
@@ -292,7 +294,7 @@ function createRoom(usedInit) {
       case 'verdict':
         if (S.phase === 'verdict' && p && !isSpy(id)) {
           S.verdict[id] = !!b.yes;
-          if (judges().every(x => x.id in S.verdict)) finishVerdict();
+          if (judges().filter(x => isOnline(x.id)).every(x => x.id in S.verdict)) finishVerdict();
         }
         return {};
       case 'word': {
@@ -334,7 +336,7 @@ function createRoom(usedInit) {
     if (ph === 'drawReveal') v.drawings = S.drawings;
     if (ph === 'voteResult') v.res = S.res;
     if (ph === 'wordsReveal') v.words = S.words;
-    if (ph === 'end') v.end = { ...S.win, location: S.location, spyIds: S.spyIds, guess: S.guess || '', guessBy: S.guessBy || null };
+    if (ph === 'end') v.end = { ...S.win, location: S.location, spyIds: S.spyIds, guess: S.guess || '', guessBy: S.guessBy || null, tally: S.win.reason === 'guessed' || S.win.reason === 'wrong' ? S.tally : null };
 
     const amHost = isScreenHost || (p && p.id === room.hostId);
     v.amHost = !!amHost;
