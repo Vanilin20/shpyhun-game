@@ -60,7 +60,7 @@ function createRoom(usedInit) {
   let S = { phase: 'lobby' };  // стан поточної партії
   let timer = null;
   const { online, polled } = room;
-  const isOnline = id => (online.get(id) || 0) > 0 || Date.now() - (polled.get(id) || 0) < 8000;
+  const isOnline = id => !(byId(id) || {}).left && (online.get(id) || 0) > 0 || Date.now() - (polled.get(id) || 0) < 8000;
 
   // зіграні локації (список зберігає браузер ведучого)
   const used = new Set((Array.isArray(usedInit) ? usedInit : []).filter(x => typeof x === 'string').slice(0, 3000));
@@ -76,7 +76,7 @@ function createRoom(usedInit) {
   }
 
   const byId = id => players.find(p => p.id === id);
-  const byToken = t => (t ? players.find(p => p.token === t) : null);
+  const byToken = t => (t ? players.find(p => p.token === t && !p.left) : null);
   const alive = () => players.filter(p => p.alive);
   const nm = id => { const x = byId(id); return x ? (x.char || x.name) : '?'; };   // ім'я персонажа, коли воно вже є
 
@@ -202,7 +202,48 @@ function createRoom(usedInit) {
   function revealWords() { S.words = { ...S.sub }; S.sub = {}; S.phase = 'wordsReveal'; setTimer(SEC.wordsReveal, () => toVote()); }
 
   function endGame(winner, reason) { clearTimer(); S.phase = 'end'; S.win = { winner, reason }; }
-  function toLobby() { clearTimer(); S = { phase: 'lobby' }; players.forEach(p => { p.alive = true; p.char = ''; }); }
+  function toLobby() { clearTimer(); S = { phase: 'lobby' }; players = players.filter(p => !p.left); players.forEach(p => { p.alive = true; p.char = ''; }); }
+
+  // гравець вийшов посеред партії: вибуває; якщо пішов шпигун або лишилось менше 3 — партію зупиняємо
+  function leaveMidGame(p) {
+    const id = p.id, who = p.char || p.name;
+    p.left = true; p.alive = false;
+    if (room.hostId === id) {
+      const next = players.find(x => !x.left && isOnline(x.id)) || players.find(x => !x.left);
+      room.hostId = next ? next.id : null; room.hostOffSince = 0;
+    }
+    const here = players.filter(x => !x.left);
+    if (S.phase === 'end') return;
+    if (isSpy(id) || here.length < 3) {
+      toLobby();
+      S.notice = `${who} вийшов із гри — партію зупинено.` + (here.length < 3 ? ' Замало гравців.' : '');
+      return;
+    }
+    // прибрати з черги ходів
+    if (S.order && ['questions', 'items'].includes(S.phase)) {
+      const i = S.order.indexOf(id);
+      if (i >= 0) {
+        const wasTarget = S.target === id;
+        S.order.splice(i, 1);
+        if (i < S.idx) S.idx--;
+        if (S.phase === 'questions') {
+          if (i === S.idx || wasTarget) { if (S.idx >= S.order.length) toExtra(); else startAsk(); }
+        } else if (i === S.idx) { S.idx--; nextItem(); }
+      }
+    }
+    if (S.votes) for (const [k, t] of Object.entries(S.votes)) if (k === id || t === id) delete S.votes[k];
+    if (S.cands) S.cands = S.cands.filter(x => x !== id);
+    S.notice = (S.notice ? S.notice + " " : "") + `${who} вийшов із гри.`;
+    switch (S.phase) {
+      case 'roles': if (here.every(x => S.sub[x.id])) toNames(); break;
+      case 'names': if (here.every(x => S.sub[x.id])) revealNames(); break;
+      case 'drawing': if (alive().every(x => S.sub[x.id])) revealDrawings(); break;
+      case 'words': if (alive().every(x => S.sub[x.id])) revealWords(); break;
+      case 'emoji': if (alive().every(x => S.sub[x.id])) revealEmoji(); break;
+      case 'vote': if (alive().every(x => S.votes[x.id])) tally(); break;
+      case 'verdict': if (judges().filter(x => isOnline(x.id)).every(x => x.id in S.verdict)) finishVerdict(); break;
+    }
+  }
 
   // «Далі» / «Не чекати» від ведучого
   function hostNext() {
@@ -250,17 +291,18 @@ function createRoom(usedInit) {
         return { id: np.id, token: np.token };
       }
       case 'leave':
-        if (p && S.phase === 'lobby') {
+        if (!p) return {};
+        if (S.phase === 'lobby') {
           players = players.filter(x => x.id !== id);
           if (room.hostId === id) room.hostId = players[0] ? players[0].id : null;
-        }
+        } else leaveMidGame(p);
         return {};
       case 'ready':
-        if (S.phase === 'roles' && p) { S.sub[id] = true; if (players.every(x => S.sub[x.id])) toNames(); }
+        if (S.phase === 'roles' && p) { S.sub[id] = true; if (players.every(x => x.left || S.sub[x.id])) toNames(); }
         return {};
       case 'name': {
         const t = String(b.text || '').trim().slice(0, 40);
-        if (S.phase === 'names' && p && t) { S.sub[id] = t; if (players.every(x => S.sub[x.id])) revealNames(); }
+        if (S.phase === 'names' && p && t) { S.sub[id] = t; if (players.every(x => x.left || S.sub[x.id])) revealNames(); }
         return {};
       }
       case 'asked':

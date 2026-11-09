@@ -64,6 +64,7 @@ function enter() {
   });
 }
 function leave() {
+  if (st && !['lobby', 'end'].includes(st.phase) && !confirm('Вийти з гри? Ти вибуваєш із цієї партії.' + (st.amHost ? ' Ведучим стане інший гравець.' : ''))) return;
   api('leave');
   if (live) live.stop(); live = null;
   store.set('spy_session', null); SES = null; st = null;
@@ -184,7 +185,8 @@ function holdToReveal(el) {
 }
 $('#roleBtn').onclick = () => {
   const o = $('#overlay');
-  o.innerHTML = dossier() + '';
+  o.innerHTML = dossier() + '<button class="btn ghost wide" id="ovLeave" style="margin-top:14px">Вийти з гри</button>';
+  o.querySelector('#ovLeave').onclick = () => { o.hidden = true; leave(); };
   o.hidden = false;
   holdToReveal(o.querySelector('.dossier'));
   o.onclick = e => { if (e.target === o) o.hidden = true; };
@@ -250,6 +252,7 @@ function screenHtml() {
               ${p.id === s.hostId ? '<span class="tag">👑 ведучий</span>' : ''}
               ${s.amHost && p.id !== m.id ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати">×</button>` : ''}</div>`).join('')}</div>
         </div>
+        ${notice()}
         ${s.amHost ? (n < 3 ? `<p class="muted center">Потрібно ще ${3 - n} ${3 - n === 1 ? 'гравець' : 'гравці'}, щоб почати.</p>` : '')
                    : `<div class="waiting">Чекаємо, поки <b>${esc(host.name)}</b> почне гру</div>`}
         ${RULES}
@@ -259,7 +262,8 @@ function screenHtml() {
     case 'roles':
       return `${R.phaseTag(s)}<h1>Твоє досьє</h1><p class="muted">Натисни й тримай, щоб прочитати. Не показуй іншим.</p>
         ${dossier()}
-        ${m.mine ? wait('Чекаємо, поки всі прочитають…') : `<button class="btn primary wide" data-act="ready">Я запам'ятав</button><div id="dots"></div>`}`;
+        ${m.mine ? wait('Чекаємо, поки всі прочитають…') : `<button class="btn primary wide" data-act="ready">Я запам'ятав</button><div id="dots"></div>`}
+        <button class="linkbtn" id="leaveBtn">Вийти з гри</button>`;
     case 'names':
       if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твій персонаж</div><div class="val">${esc(m.mine)}</div></div>${wait('Чекаємо інших…')}`;
       return `${R.phaseTag(s)}<h1>Хто ти сьогодні?</h1>
@@ -354,7 +358,8 @@ function screenHtml() {
       return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
         <h1>${iWon ? '🎉 Ти переміг!' : 'Цього разу — поразка'}</h1><p class="muted">${REASON[e.reason] || ''}</p></div>
         ${R.endReveal(s)}
-        ${s.amHost ? '' : waiting(`Нову партію почне <b>${esc(P(s.hostId).name)}</b>`)}`;
+        ${s.amHost ? '' : waiting(`Нову партію почне <b>${esc(P(s.hostId).name)}</b>`)}
+        <button class="linkbtn" id="leaveBtn">Вийти з кімнати</button>`;
     }
   }
   return '';
