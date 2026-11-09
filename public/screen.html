@@ -94,6 +94,9 @@ function view() {
           <div class="plist" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${s.players.length ? s.players.map(p => `
             <div class="prow ${p.online ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}</span>${p.id === s.hostId ? '<span class="tag">👑</span>' : ''}
             ${s.amHost ? `<button class="x" data-kick="${p.id}">×</button>` : ''}</div>`).join('') : '<p class="muted">Поки нікого…</p>'}</div>
+          ${R.settings(s)}
+          ${R.scores(s)}
+          <button class="linkbtn" id="soundBtn" style="justify-self:start">${Sound.on ? '🔊 Звук увімкнено' : '🔇 Звук вимкнено'}</button>
         </div></div>`;
     }
     case 'roles': return `<div class="center" style="display:grid;gap:18px;justify-items:center;padding-top:6vh"><span class="stamp big">Цілком таємно</span><h1>Подивіться у свої досьє</h1><p class="muted">Натисніть і тримайте на телефоні. Не показуйте сусідам.</p></div>`;
@@ -127,7 +130,8 @@ function view() {
     case 'end': { const e = s.end, spyWon = e.winner === 'spy';
       return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
         <p class="muted" style="font-size:20px">${REASON[e.reason] || ''}</p></div>
-        <div style="max-width:900px;width:100%;margin:0 auto">${R.endReveal(s).replace('class="reveal3"', 'class="reveal3" style="grid-template-columns:1fr 1fr"')}</div>`; }
+        <div style="max-width:900px;width:100%;margin:0 auto">${R.endReveal(s).replace('class="reveal3"', 'class="reveal3" style="grid-template-columns:1fr 1fr"')}</div>
+        <div class="tv-end2">${R.scores(s)}${R.votes(s)}</div>`; }
   }
   return '';
 }
@@ -146,12 +150,15 @@ function render() {
   const s = st;
   $('#codeChip').hidden = false; $('#codeChip').textContent = 'КОД ' + s.code;
   $('#themeChip').hidden = !s.theme; $('#themeChip').textContent = s.theme || '';
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
     s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0]);
   if (key !== lastKey) {
     lastKey = key;
     $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:24px">${view()}</div>`;
     $('#main').querySelectorAll('[data-kick]').forEach(b => b.onclick = () => act('kick', { target: b.dataset.kick }));
+    R.bindSettings($('#main'), s, act);
+    if ($('#soundBtn')) $('#soundBtn').onclick = () => { Sound.toggle(); lastKey = ''; render(); };
+    if (['namesReveal', 'drawReveal', 'emojiReveal', 'voteResult', 'wordsReveal', 'end'].includes(s.phase)) Sound.reveal();
     if ($('#nextUrl')) $('#nextUrl').onclick = () => { urlIdx++; lastKey = ''; render(); };
     R.bindZoom($('#main'));
     if (s.phase === 'end') confetti();

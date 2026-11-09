@@ -72,10 +72,10 @@ async function postApi(body) {
 
 // ---------- таймер-кільце ----------
 const Timer = (() => {
-  let total = 0, lastEnds = 0, off = 0, ends = 0;
+  let total = 0, lastEnds = 0, off = 0, ends = 0, lastSec = -1;
   function set(st) {
     off = st.now - Date.now();
-    if (st.endsAt !== lastEnds) { lastEnds = st.endsAt; ends = st.endsAt; total = st.endsAt ? Math.max(1, st.endsAt - st.now) : 0; }
+    if (st.endsAt !== lastEnds) { lastEnds = st.endsAt; lastSec = -1; ends = st.endsAt; total = st.endsAt ? Math.max(1, st.endsAt - st.now) : 0; }
   }
   function left() { return ends ? Math.max(0, ends - Date.now() - off) : null; }
   function html() { return `<div class="ring" id="ring" hidden><svg viewBox="0 0 46 46"><circle class="bg" cx="23" cy="23" r="20"/><circle class="fg" cx="23" cy="23" r="20" stroke-dasharray="125.66" stroke-dashoffset="0"/></svg><span></span></div>`; }
@@ -85,6 +85,11 @@ const Timer = (() => {
     el.hidden = l == null;
     if (l == null) return;
     const s = Math.ceil(l / 1000);
+    if (s !== lastSec) {
+      if (s > 0 && s <= 3 && lastSec > s) Sound.tick();
+      if (s === 0 && lastSec > 0) Sound.timeUp();
+      lastSec = s;
+    }
     el.querySelector('span').textContent = s >= 60 ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : s;
     el.querySelector('.fg').style.strokeDashoffset = 125.66 * (1 - (total ? l / total : 0));
     el.classList.toggle('low', s <= 10);
@@ -176,6 +181,42 @@ const R = {
     const done = new Set(st.done || []);
     return `<div class="dots">${ids.map(id => { const p = R.P(st, id); return `<span title="${esc(dn(p))}">${av(p, done.has(id) ? 'on' : '')}</span>`; }).join('')}</div>`;
   },
+  // налаштування ведучого в лобі (іншим — лише показ)
+  settings(st) {
+    const s = st.settings, ed = st.amHost;
+    const chip = (k, label) => `<button class="opt-chip ${s[k] ? 'on' : ''}" ${ed ? `data-set="${k}"` : 'disabled'}>${label}</button>`;
+    const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
+    return `<div class="settings">
+      <span class="label">Раунди${ed ? ' · тисни, щоб увімкнути чи вимкнути' : ''}</span>
+      <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('emoji', '😀 Емодзі')}</div>
+      ${s.drawing && s.items ? '<p class="muted" style="font-size:13px;margin:0">Малювання й предмети чергуються між партіями.</p>' : ''}
+      <span class="label">Темп (час на етапи)</span><div class="chips">${pace}</div></div>`;
+  },
+  bindSettings(root, st, send) {
+    root.querySelectorAll('[data-set]').forEach(b => b.onclick = () => send('settings', { settings: { [b.dataset.set]: !st.settings[b.dataset.set] } }));
+    root.querySelectorAll('[data-pace]').forEach(b => b.onclick = () => send('settings', { settings: { pace: +b.dataset.pace } }));
+    root.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => { if (confirm('Скинути рахунок усім?')) send('resetScore'); });
+  },
+  // таблиця очок між партіями
+  scores(st) {
+    const ps = st.players.slice().sort((a, b) => b.score - a.score);
+    if (!ps.some(p => p.score)) return '';
+    const g = (st.end && st.end.gain) || {};
+    return `<div class="scores"><span class="label">Рахунок</span>${ps.map((p, i) => `
+      <div class="srow">${i === 0 && p.score > (ps[1] ? ps[1].score : 0) ? '<span class="rk">👑</span>' : `<span class="rk">${i + 1}</span>`}
+        ${av({ name: p.name })}<span class="nm">${esc(p.name)}</span>${g[p.id] ? `<span class="gain">+${g[p.id]}</span>` : ''}<b>${p.score}</b></div>`).join('')}
+      ${st.amHost ? '<button class="linkbtn" data-reset>Скинути рахунок</button>' : ''}</div>`;
+  },
+  // історія голосувань у кінці партії
+  votes(st) {
+    const e = st.end, log = (e && e.votes) || [];
+    if (!log.length) return '';
+    const who = id => esc(dn(R.P(st, id)));
+    return `<div class="votelog"><span class="label">Хто за кого голосував</span>${log.map((r, i) => `
+      <div class="paper" style="${rot(i)}"><div class="lbl">Голосування ${r.no}${r.revote ? ' · переголосування' : ''}</div>
+        ${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}
+        <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — шпигун 🕵️' : ''}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
+  },
   endReveal(st) {
     const e = st.end, spies = e.spyIds.map(id => R.P(st, id));
     return `<div class="reveal3">
@@ -196,4 +237,30 @@ function confetti() {
   document.body.appendChild(box); setTimeout(() => box.remove(), 6000);
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
+// ---------- звуки (Web Audio, без файлів) ----------
+const Sound = (() => {
+  let ctx = null, on = store.get('spy_sound') !== false;
+  const unlock = () => { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch (e) {} };
+  addEventListener('pointerdown', unlock, { passive: true });
+  addEventListener('keydown', unlock);
+  function play(notes) {
+    if (!on || !ctx) return;
+    const t = ctx.currentTime;
+    for (const [f, at, dur, type = 'sine', vol = .16] of notes) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + .015); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      o.connect(g).connect(ctx.destination); o.start(t + at); o.stop(t + at + dur + .05);
+    }
+  }
+  return {
+    get on() { return on; },
+    toggle() { on = !on; store.set('spy_sound', on); unlock(); if (on) this.turn(); return on; },
+    turn() { play([[660, 0, .13], [990, .14, .22]]); },                                  // твоя черга
+    timeUp() { play([[520, 0, .2, 'triangle', .22], [350, .22, .38, 'triangle', .22]]); }, // час вийшов
+    tick() { play([[1200, 0, .05, 'sine', .07]]); },                                    // останні секунди
+    reveal() { play([[523, 0, .12], [659, .1, .12], [784, .2, .25]]); },                // показ результатів
+  };
+})();
+
 function buzz(ms = 60) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }

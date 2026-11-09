@@ -277,11 +277,14 @@ function screenHtml() {
               ${p.id === s.hostId ? '<span class="tag">👑 ведучий</span>' : ''}
               ${s.amHost && p.id !== m.id ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати">×</button>` : ''}</div>`).join('')}</div>
         </div>
+        ${R.settings(s)}
+        ${R.scores(s)}
         ${notice()}
         ${s.amHost ? (n < 3 ? `<p class="muted center">Потрібно ще ${3 - n} ${3 - n === 1 ? 'гравець' : 'гравці'}, щоб почати.</p>` : '')
                    : `<div class="waiting">Чекаємо, поки <b>${esc(host.name)}</b> почне гру</div>`}
         ${RULES}
         <p class="muted center" style="font-size:14px">Є ноутбук чи ТВ? Відкрий на ньому <b>${esc(location.host)}/screen</b> і введи код <b>${esc(s.code)}</b> — там буде видно все разом.</p>
+        <button class="linkbtn" id="soundBtn">${Sound.on ? '🔊 Звук увімкнено' : '🔇 Звук вимкнено'}</button>
         <button class="linkbtn" id="leaveBtn">Вийти з кімнати</button>`;
     }
     case 'roles':
@@ -383,6 +386,9 @@ function screenHtml() {
       return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
         <h1>${iWon ? '🎉 Ти переміг!' : 'Цього разу — поразка'}</h1><p class="muted">${REASON[e.reason] || ''}</p></div>
         ${R.endReveal(s)}
+        ${R.scores(s)}
+        ${R.votes(s)}
+        ${s.amHost ? R.settings(s) : ''}
         ${s.amHost ? '' : waiting(`Нову партію почне <b>${esc(P(s.hostId).name)}</b>`)}
         <button class="linkbtn" id="leaveBtn">Вийти з кімнати</button>`;
     }
@@ -418,7 +424,7 @@ function render() {
   if (s.phase !== 'drawing') { drawSent = false; canvasApi = null; }
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, s.settings, s.players.map(p => p.score), Sound.on,
     s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => i.by) : 0, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
@@ -450,7 +456,7 @@ function render() {
   const cur = s.order ? s.order[s.idx] : null;
   const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (s.phase === 'items' && cur === m.id) || (s.phase === 'guess' && m.isSpy);
   const tk = turn ? [s.game, s.phase, s.qi, s.idx, s.stage].join() : '';
-  if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); }
+  if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); Sound.turn(); }
   Timer.tick();
 }
 
@@ -462,6 +468,8 @@ function bind() {
   main.querySelectorAll('[data-verdict]').forEach(b => b.onclick = () => api('verdict', { yes: b.dataset.verdict === '1' }));
   main.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { buzz(30); api('pick', { index: +b.dataset.pick }); });
   main.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => api('kick', { target: b.dataset.kick }));
+  R.bindSettings(main, st, api);
+  if ($('#soundBtn')) $('#soundBtn').onclick = () => { Sound.toggle(); lastKey = ''; render(); };
   R.bindZoom(main);
   if (st.phase === 'roles') holdToReveal(main.querySelector('.dossier'));
   if ($('#leaveBtn')) $('#leaveBtn').onclick = leave;

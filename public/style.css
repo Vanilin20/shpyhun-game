@@ -335,3 +335,23 @@ details.rules b { color: var(--fg); }
 
 /* сервер перезапускається — плашка зверху */
 body.reconnecting::before{content:"Відновлюємо зв'язок із сервером…";position:fixed;z-index:999;left:50%;top:10px;transform:translateX(-50%);background:var(--gold);color:#1a1408;font:700 13px var(--body);padding:8px 14px;border-radius:999px;box-shadow:0 6px 20px rgba(0,0,0,.4);white-space:nowrap}
+
+/* налаштування, рахунок, історія голосувань */
+.settings{display:grid;gap:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.opt-chip{padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted,#999);font:700 13px var(--body);cursor:pointer;text-decoration:line-through;opacity:.75}
+.opt-chip.on{background:var(--paper);color:var(--paper-ink);border-color:var(--paper);text-decoration:none;opacity:1}
+.opt-chip:disabled{cursor:default}
+.scores{display:grid;gap:6px}
+.srow{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:12px;background:var(--panel);border:1px solid var(--line)}
+.srow .rk{width:22px;text-align:center;font:700 13px var(--mono);opacity:.7}
+.srow .nm{flex:1;font-weight:700}
+.srow b{font:800 18px var(--display)}
+.srow .gain{font:700 12px var(--mono);color:#1a1408;background:var(--gold);padding:2px 7px;border-radius:999px}
+.votelog{display:grid;gap:12px}
+.vline{display:flex;gap:8px;align-items:baseline;padding:3px 0;font-size:15px;border-bottom:1px dashed rgba(35,29,20,.15)}
+.vline .arr{opacity:.5}
+.vline b.hit{color:var(--red)}
+.vout{margin-top:8px;font-size:14px}
+.tv-end2{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:900px;width:100%;margin:0 auto;align-items:start}
+.tv .vline{font-size:18px}
