@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { exec } = require('child_process');
-const { THEMES, ITEMS, LOC_ITEMS, CLOCK_HOURS, CLOCK_SPANS } = require('./data');
+const { THEMES, ITEMS, LOC_ITEMS, CLOCK_HOURS, CLOCK_SPANS, THEME_FIT, fits } = require('./data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
@@ -154,10 +154,19 @@ function createRoom(usedInit, code) {
   // Додаткові раунди: щогри випадково 2 різні з увімкнених — один після імен, другий перед голосуванням.
   // Раунди з минулої партії по змозі не повторюються.
   const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes'];
+  // вага раунду для теми (THEME_FIT): підходящі випадають частіше, вага 0 — ніколи;
+  // раунди з минулої партії — у 4 рази рідше
   function pickRounds() {
     const on = ROUNDS.filter(k => room.settings[k]);
-    const fresh = shuffle(on.filter(k => !room.lastRounds.includes(k)));
-    const pick = fresh.concat(shuffle(on.filter(k => room.lastRounds.includes(k)))).slice(0, 2);
+    const fit = (THEME_FIT[S.theme] || ['', {}])[1];
+    let pool = on.map(k => ({ k, w: (k in fit ? fit[k] : 1) * (room.lastRounds.includes(k) ? .25 : 1) })).filter(x => x.w > 0);
+    if (!pool.length) pool = on.map(k => ({ k, w: 1 }));   // ведучий лишив тільки непідходящі — граємо їх
+    const pick = [];
+    while (pick.length < 2 && pool.length) {
+      let r = Math.random() * pool.reduce((a, x) => a + x.w, 0);
+      const i = Math.max(0, pool.findIndex(x => (r -= x.w) < 0));
+      pick.push(pool.splice(i, 1)[0].k);
+    }
     room.lastRounds = pick;
     return pick.length === 1 ? [null, pick[0]] : pick;   // один раунд — ставимо перед голосуванням
   }
@@ -183,7 +192,10 @@ function createRoom(usedInit, code) {
 
   // годинник: 2 питання «о котрій» + 1 «скільки часу»
   function toClock() {
-    S.cq = shuffle(CLOCK_HOURS).slice(0, 2).map(q => ({ q, t: 'h' })).concat([{ q: pickOne(CLOCK_SPANS), t: 'd' }]);
+    const hours = CLOCK_HOURS.filter(([, n]) => fits(n, S.theme)), spans = CLOCK_SPANS.filter(([, n]) => fits(n, S.theme));
+    // спершу — питання саме під цю тему, щоб не крутилися ті самі загальні
+    const pickQ = (list, k) => shuffle(list.filter(x => x[1])).concat(shuffle(list.filter(x => !x[1]))).slice(0, k).map(x => x[0]);
+    S.cq = shuffle(pickQ(hours, 2)).map(q => ({ q, t: 'h' })).concat(pickQ(spans, 1).map(q => ({ q, t: 'd' })));
     S.phase = 'clock'; S.sub = {}; setTimer(T('clock'), revealClock);
   }
   function revealClock() { S.clockAns = { ...S.sub }; S.sub = {}; S.phase = 'clockReveal'; setTimer(T('clockReveal'), roundDone); }
