@@ -86,7 +86,7 @@ const REASON = {
 };
 const PHASE_NAME = {
   roles: 'Досьє', names: 'Імена', namesReveal: 'Імена', questions: 'Допит', drawing: 'Малювання', drawReveal: 'Галерея',
-  items: 'Предмети', itemsDone: 'Предмети', blitz: 'Бліц', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
+  items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
   words: 'Одне слово', wordsReveal: 'Слова', end: 'Справу закрито',
 };
 const rot = i => `--rot:${[-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9][i % 8]}deg`;
@@ -102,10 +102,10 @@ const R = {
       <div class="card" style="animation-delay:${i * .1}s"><div class="paper" style="${rot(i)}">
         <div class="who">${av(p)}${esc(p.name)}</div><div class="big">${esc(p.char)}</div></div></div>`).join('')}</div>`;
   },
-  words(st) {
+  words(st, field = 'words', cls = '') {
     return `<div class="cards">${R.alive(st).map((p, i) => `
       <div class="card" style="animation-delay:${i * .12}s"><div class="paper" style="${rot(i)}">
-        <div class="who">${av(p)}${esc(p.char || p.name)}</div><div class="big">${esc((st.words || {})[p.id] || '—')}</div></div></div>`).join('')}</div>`;
+        <div class="who">${av(p)}${esc(p.char || p.name)}</div><div class="big ${cls}">${esc((st[field] || {})[p.id] || '—')}</div></div></div>`).join('')}</div>`;
   },
   gallery(st) {
     return `<div class="gallery">${R.alive(st).map((p, i) => {

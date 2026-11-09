@@ -78,9 +78,9 @@ function chrome(inRoom) {
 const RULES = `<details class="rules"><summary>Як грати</summary><ol>
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
   <li><b>Імена:</b> вигадай персонажа з натяком на локацію.</li>
-  <li><b>Допит:</b> по черзі питаєте одне одного вголос — 2 хвилини на питання.</li>
+  <li><b>Допит по колу:</b> кожен питає наступного гравця вголос — 2 хвилини на питання.</li>
   <li><b>Малюнок або предмет</b> (по черзі між партіями): намалюй локацію або обери предмет і до 2 хвилин розповідай, як він з нею пов'язаний.</li>
-  <li><b>Бліц:</b> 3 питання, на кожне по черзі відповідає кожен — уголос, 30 секунд.</li>
+  <li><b>Три емодзі:</b> за 2 хвилини опиши локацію трьома емодзі, потім усі бачать, хто що ввів.</li>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Мирним треба вигнати обох.</li></ol></details>`;
@@ -270,12 +270,10 @@ function screenHtml() {
       return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': {
       const head = R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`);
-      if (cur === m.id && s.stage === 'pick') return `${head}<h1>Твоя черга питати</h1><p class="muted">Кого допитуємо?</p>
-        <div class="list">${R.alive(s).filter(p => p.id !== m.id).map(p => `<button class="btn opt" data-target="${p.id}">${av(p)}<span>${esc(dn(p))}</span></button>`).join('')}</div>`;
       if (cur === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Питай уголос</h1>
         <p class="muted center">У вас до 2 хвилин. Коли відповіли — тисни кнопку.</p><button class="btn ok wide" data-act="asked">Відповіли ✓</button>${R.order(s)}`;
-      if (s.target === m.id && s.stage === 'ask') return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами 😏</p>${R.order(s)}`;
-      return `${head}${outBanner()}${R.duel(s, m.id)}<p class="muted center">${s.stage === 'pick' ? `<b>${esc(dn(P(cur)))}</b> обирає, кого спитати` : 'Слухай уважно: хто відповідає надто розмито?'}</p>${R.order(s)}`;
+      if (s.target === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами 😏</p>${R.order(s)}`;
+      return `${head}${outBanner()}${R.duel(s, m.id)}<p class="muted center">Слухай уважно: хто відповідає надто розмито?</p>${R.order(s)}`;
     }
     case 'drawing':
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші малюють…')}`;
@@ -304,14 +302,17 @@ function screenHtml() {
     }
     case 'itemsDone':
       return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
-    case 'blitz': {
-      const head = R.phaseTag(s, `Бліц · питання ${s.qi + 1} з ${s.qs.length}`);
-      const q = `<div class="paper" style="--rot:-1deg"><div class="lbl">Питання ${s.qi + 1}</div><div class="val">${esc(s.qs[s.qi])}</div></div>`;
-      if (cur === m.id) return `${head}${q}<h1 class="center">Твоя черга — відповідай уголос</h1>
-        <p class="muted center">${m.isSpy ? 'Ти шпигун — відповідай так, щоб пасувало до будь-якого місця з теми.' : 'Коротко й так, щоб шпигун не здогадався.'}</p>
-        <button class="btn ok wide" data-act="answered">Відповів ✓</button>${R.order(s)}`;
-      return `${head}${outBanner()}${q}<p class="muted center" style="display:flex;align-items:center;justify-content:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(dn(P(cur)))}</b> відповідає</p>${R.order(s)}`;
+    case 'emoji': {
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші підбирають емодзі…')}`;
+      if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твої емодзі</div><div class="val emo">${esc(m.mine)}</div></div>${wait('Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Три емодзі</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Підбери 3 емодзі, які пасують до теми «${esc(s.theme)}».` : 'Опиши локацію трьома емодзі. Так, щоб свої впізнали, а шпигун — ні.'}</p>
+        <div class="emo-slots" id="slots"><span></span><span></span><span></span></div>
+        <input type="text" id="txt" maxlength="60" placeholder="Відкрий емодзі на клавіатурі 😀" autocomplete="off" inputmode="text">
+        <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
     }
+    case 'emojiReveal':
+      return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
@@ -360,7 +361,7 @@ function screenHtml() {
 }
 
 // ---------- кнопки ведучого ----------
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'voteResult', 'wordsReveal'];
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';
@@ -372,7 +373,7 @@ function hostbarHtml() {
   if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
   if (s.phase === 'verdict') return '';   // рішення мирних не пропускається
-  const label = ['questions', 'items', 'blitz'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
+  const label = ['questions', 'items'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
   return `${tag}<button class="btn ghost small" data-host="next">${label}</button>`;
 }
 
@@ -417,7 +418,7 @@ function render() {
   }
   // вібрація, коли твій хід
   const cur = s.order ? s.order[s.idx] : null;
-  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (['items', 'blitz'].includes(s.phase) && cur === m.id) || (s.phase === 'guess' && m.isSpy);
+  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (s.phase === 'items' && cur === m.id) || (s.phase === 'guess' && m.isSpy);
   const tk = turn ? [s.game, s.phase, s.qi, s.idx, s.stage].join() : '';
   if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); }
   Timer.tick();
@@ -445,6 +446,15 @@ function bind() {
   };
   if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); $('#send').onclick = sendDrawing; return; }
   const btn = $('#send'), txt = $('#txt');
+  if (btn && txt && st.phase === 'emoji') {
+    const seg = new Intl.Segmenter('uk', { granularity: 'grapheme' });
+    const pick = () => [...seg.segment(txt.value)].map(x => x.segment).filter(g => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g)).slice(0, 3);
+    const upd = () => { const e = pick(); $('#slots').querySelectorAll('span').forEach((s, i) => { s.textContent = e[i] || ''; s.classList.toggle('on', !!e[i]); }); btn.disabled = e.length < 3; return e; };
+    txt.oninput = upd; upd();
+    const go = () => { const e = upd(); if (e.length === 3) { btn.disabled = true; api('emoji', { text: e.join(' ') }); } else toast('Потрібно 3 емодзі'); };
+    btn.onclick = go; txt.onkeydown = e => { if (e.key === 'Enter') go(); };
+    return;
+  }
   if (btn && txt) {
     const action = { names: 'name', words: 'word', guess: 'guess' }[st.phase];
     const go = () => { const t = txt.value.trim(); if (t) { btn.disabled = true; api(action, { text: t }); } else txt.focus(); };

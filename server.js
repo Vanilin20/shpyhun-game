@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { exec } = require('child_process');
-const { THEMES, ITEMS, BLITZ } = require('./data');
+const { THEMES, ITEMS } = require('./data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
@@ -19,13 +19,19 @@ const TWO_SPIES_FROM = 7;   // з такої кількості гравців �
 const MAX_ROOMS = 300;
 
 // тривалість етапів, секунди
+// дістає з тексту лише емодзі (з урахуванням складених, як 👨‍🍳 чи 🇺🇦)
+const seg = new Intl.Segmenter('uk', { granularity: 'grapheme' });
+function onlyEmoji(t) {
+  return [...seg.segment(String(t || '').slice(0, 200))].map(x => x.segment).filter(g => /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(g));
+}
+
 const SEC = {
   roles: 45, names: 75,
-  pick: 25, question: 120,            // вибір, кого спитати / питання й відповідь
+  question: 120,                      // одне питання й відповідь (допит іде по колу)
   drawing: 70, itemPick: 25, explain: 120,
-  vote: 45, guess: 30, verdict: 45, words: 40, blitz: 30,   // blitz — на одну відповідь у бліці
+  vote: 45, guess: 30, verdict: 45, words: 40, emoji: 120,
   // показ результатів (ведучий може натиснути «Далі» раніше)
-  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25,
+  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30,
 };
 
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -102,19 +108,13 @@ function createRoom(usedInit) {
     setTimer(SEC.namesReveal, toQuestions);
   }
 
+  // допит по колу: кожен питає наступного, останній — першого
   function toQuestions() { S.phase = 'questions'; S.order = shuffle(alive().map(p => p.id)); S.idx = 0; startAsk(); }
-  function startAsk() { S.stage = 'pick'; S.target = null; setTimer(SEC.pick, questionsTimeout); }
-  function startAnswer() { S.stage = 'ask'; setTimer(SEC.question, questionsTimeout); }
-  function questionsTimeout() {
-    if (S.stage === 'pick') {
-      const cur = S.order[S.idx];
-      S.target = pickOne(alive().filter(p => p.id !== cur)).id;
-      startAnswer();
-    } else nextAsk();
-  }
+  function startAsk() { S.stage = 'ask'; S.target = S.order[(S.idx + 1) % S.order.length]; setTimer(SEC.question, nextAsk); }
+  function questionsTimeout() { nextAsk(); }
   function nextAsk() { S.idx++; if (S.idx >= S.order.length) toExtra(); else startAsk(); }
 
-  // після допиту — малювання або предмети, по черзі між партіями; потім бліц
+  // після допиту — малювання або предмети, по черзі між партіями; потім емодзі
   let drawNext = Math.random() < .5;
   function toExtra() {
     S.extras = [drawNext ? 'drawing' : 'items'];
@@ -122,23 +122,11 @@ function createRoom(usedInit) {
     S.extraIdx = 0;
     startExtra();
   }
-  function nextExtra() { S.extraIdx++; if (S.extraIdx < S.extras.length) startExtra(); else toBlitz(); }
+  function nextExtra() { S.extraIdx++; if (S.extraIdx < S.extras.length) startExtra(); else toEmoji(); }
 
-  // бліц: 3 питання, на кожне по черзі відповідають усі (уголос)
-  let lastQs = [];
-  function toBlitz() {
-    const pool = BLITZ.filter(q => !lastQs.includes(q));
-    S.qs = shuffle(pool.length >= 3 ? pool : BLITZ).slice(0, 3);
-    lastQs = lastQs.concat(S.qs).slice(-15);
-    S.phase = 'blitz'; S.qi = 0; S.order = shuffle(alive().map(p => p.id)); S.idx = 0;
-    setTimer(SEC.blitz, nextBlitz);
-  }
-  function nextBlitz() {
-    S.idx++;
-    if (S.idx >= S.order.length) { S.idx = 0; S.qi++; }
-    if (S.qi >= S.qs.length) return toVote();
-    setTimer(SEC.blitz, nextBlitz);
-  }
+  // емодзі: кожен за 2 хвилини вводить 3 емодзі про локацію, потім показуємо всім
+  function toEmoji() { S.phase = 'emoji'; S.sub = {}; setTimer(SEC.emoji, revealEmoji); }
+  function revealEmoji() { S.emojis = { ...S.sub }; S.sub = {}; S.phase = 'emojiReveal'; setTimer(SEC.emojiReveal, () => toVote()); }
   function startExtra() {
     S.extra = S.extras[S.extraIdx];
     if (S.extra === 'drawing') { S.phase = 'drawing'; S.sub = {}; setTimer(SEC.drawing, revealDrawings); }
@@ -227,7 +215,8 @@ function createRoom(usedInit) {
       case 'drawReveal': return nextExtra();
       case 'items': return itemsTimeout();
       case 'itemsDone': return nextExtra();
-      case 'blitz': return nextBlitz();
+      case 'emoji': return revealEmoji();
+      case 'emojiReveal': return toVote();
       case 'vote': return tally();
       case 'voteResult': return toGuess();
       case 'guess': return afterGuess();
@@ -274,12 +263,6 @@ function createRoom(usedInit) {
         if (S.phase === 'names' && p && t) { S.sub[id] = t; if (players.every(x => S.sub[x.id])) revealNames(); }
         return {};
       }
-      case 'target':
-        if (S.phase === 'questions' && S.stage === 'pick' && S.order[S.idx] === id) {
-          const t = byId(b.target);
-          if (t && t.alive && t.id !== id) { S.target = t.id; startAnswer(); }
-        }
-        return {};
       case 'asked':
         if (S.phase === 'questions' && S.stage === 'ask' && S.order[S.idx] === id) nextAsk();
         return {};
@@ -295,9 +278,11 @@ function createRoom(usedInit) {
           if (it && !it.by) { it.by = id; startExplain(); }
         }
         return {};
-      case 'answered':
-        if (S.phase === 'blitz' && S.order[S.idx] === id) nextBlitz();
-        return {};
+      case 'emoji': {
+        const e = onlyEmoji(b.text).slice(0, 3);
+        if (S.phase === 'emoji' && p && p.alive && e.length === 3) { S.sub[id] = e.join(' '); if (alive().every(x => S.sub[x.id])) revealEmoji(); }
+        return e.length === 3 ? {} : { error: 'Потрібно рівно 3 емодзі' };
+      }
       case 'explained':
         if (S.phase === 'items' && S.stage === 'explain' && S.order[S.idx] === id) nextItem();
         return {};
@@ -357,11 +342,11 @@ function createRoom(usedInit) {
       players: players.map(x => ({ id: x.id, name: x.name, alive: x.alive !== false, online: isOnline(x.id), char: showChars ? x.char : '' })),
       done: [],
     };
-    if (['roles', 'names', 'drawing', 'words'].includes(ph)) v.done = Object.keys(S.sub || {});
+    if (['roles', 'names', 'drawing', 'words', 'emoji'].includes(ph)) v.done = Object.keys(S.sub || {});
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
     if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
-    if (ph === 'blitz') { v.qs = S.qs; v.qi = S.qi; }
-    if (ph === 'questions' || ph === 'items' || ph === 'blitz') { v.order = S.order; v.idx = S.idx; v.stage = S.stage; v.target = S.target || null; }
+    if (ph === 'emojiReveal') v.emojis = S.emojis;
+    if (ph === 'questions' || ph === 'items') { v.order = S.order; v.idx = S.idx; v.stage = S.stage; v.target = S.target || null; }
     if (ph === 'items' || ph === 'itemsDone') v.items = S.items;
     if (ph === 'drawReveal') v.drawings = S.drawings;
     if (ph === 'voteResult') v.res = S.res;

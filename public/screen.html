@@ -100,7 +100,7 @@ function view() {
     case 'names': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><h1>Хто ви сьогодні?</h1><p class="muted">Кожен вигадує персонажа з натяком на локацію.</p></div>`;
     case 'namesReveal': return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.duel(s)}
-      <p class="muted center" style="font-size:20px">${s.stage === 'pick' ? `${esc(dn(P(cur)))} обирає, кого спитати` : 'Питання й відповідь — уголос. До 2 хвилин.'}</p>${R.order(s)}`;
+      <p class="muted center" style="font-size:20px">Питання й відповідь — уголос. До 2 хвилин.</p>${R.order(s)}`;
     case 'drawing': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🎨</span><h1>Малюємо локацію</h1><p class="muted">Потім усі малюнки з'являться тут.</p></div>`;
     case 'drawReveal': return `${R.phaseTag(s)}<h1>Галерея доказів</h1>${R.gallery(s)}`;
     case 'items': {
@@ -110,9 +110,8 @@ function view() {
         ${it ? '<p class="muted" style="font-size:20px">Як це пов\'язано з локацією? До 2 хвилин.</p>' : ''}${R.items(s, { current: it ? s.items.indexOf(it) : -1 })}`;
     }
     case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
-    case 'blitz': return `${R.phaseTag(s, `Бліц · питання ${s.qi + 1} з ${s.qs.length}`)}
-      <div class="paper" style="--rot:-1.5deg;max-width:900px;width:100%;margin:0 auto"><div class="lbl">Питання ${s.qi + 1}</div><div class="val" style="font-size:44px">${esc(s.qs[s.qi])}</div></div>
-      <div class="center" style="display:flex;align-items:center;justify-content:center;gap:12px;font-size:26px">${av(P(cur), 'lg')}<b>${esc(dn(P(cur)))}</b> відповідає</div>${R.order(s)}`;
+    case 'emoji': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">😶‍🌫️</span><h1>Три емодзі</h1><p class="muted">Кожен описує локацію трьома емодзі. Потім усі з'являться тут.</p></div>`;
+    case 'emojiReveal': return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
     case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
       <span class="stamp big">Голосування${s.voteNo === 2 ? ' №2' : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
     case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
@@ -133,14 +132,14 @@ function view() {
   return '';
 }
 
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'voteResult', 'wordsReveal'];
 function actions() {
   if (!st.amHost) return '';
   if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`; }
   if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
   if (st.phase === 'verdict') return '';
-  return `<button class="btn ghost small" data-host="next">${['questions', 'items', 'blitz'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
+  return `<button class="btn ghost small" data-host="next">${['questions', 'items'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
 }
 
 function render() {
