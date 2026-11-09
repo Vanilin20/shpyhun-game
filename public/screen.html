@@ -100,7 +100,8 @@ function view() {
         </div></div>`;
     }
     case 'roles': return `<div class="center" style="display:grid;gap:18px;justify-items:center;padding-top:6vh"><span class="stamp big">Цілком таємно</span><h1>Подивіться у свої досьє</h1><p class="muted">Натисніть і тримайте на телефоні. Не показуйте сусідам.</p></div>`;
-    case 'names': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><h1>Хто ви сьогодні?</h1><p class="muted">Кожен вигадує персонажа з натяком на локацію.</p></div>`;
+    case 'names': return `${R.phaseTag(s, `Імена · ${Math.min(s.idx + 1, s.order.length)} з ${s.order.length}`)}<h1>Хто ви сьогодні?</h1>
+      <div style="max-width:800px;width:100%;margin:0 auto">${R.namelist(s)}</div>`;
     case 'namesReveal': return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.duel(s)}
       ${s.settings.remote ? (R.qa(s) ? `<div style="max-width:900px;width:100%;margin:0 auto">${R.qa(s)}</div>` : '<p class="muted center" style="font-size:20px">Пишеться питання…</p>') : '<p class="muted center" style="font-size:20px">Питання й відповідь — уголос. До 2 хвилин.</p>'}${R.order(s)}`;
@@ -143,14 +144,14 @@ function actions() {
   if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
   if (st.phase === 'verdict') return '';
-  return `<button class="btn ghost small" data-host="next">${['questions', 'items'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
+  return `<button class="btn ghost small" data-host="next">${['questions', 'items', 'names'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
 }
 
 function render() {
   const s = st;
   $('#codeChip').hidden = false; $('#codeChip').textContent = 'КОД ' + s.code;
   $('#themeChip').hidden = !s.theme; $('#themeChip').textContent = s.theme || '';
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.qa, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.qa, s.named, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
     s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0]);
   if (key !== lastKey) {
     lastKey = key;

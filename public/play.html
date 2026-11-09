@@ -84,7 +84,7 @@ function chrome(inRoom) {
 
 const RULES = `<details class="rules"><summary>Як грати</summary><ol>
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
-  <li><b>Імена:</b> вигадай персонажа з натяком на локацію.</li>
+  <li><b>Імена по колу:</b> по черзі кожен вигадує персонажа з натяком на локацію — і бачить імена тих, хто вже назвався.</li>
   <li><b>Допит по колу:</b> кожен питає наступного гравця вголос — 2 хвилини на питання.</li>
   <li><b>Малюнок або предмет</b> (по черзі між партіями): намалюй локацію або обери предмет і до 2 хвилин розповідай, як він з нею пов'язаний.</li>
   <li><b>Три емодзі:</b> за 2 хвилини опиши локацію трьома емодзі, потім усі бачать, хто що ввів.</li>
@@ -300,12 +300,15 @@ function screenHtml() {
         ${dossier()}
         ${m.mine ? wait('Чекаємо, поки всі прочитають…') : `<button class="btn primary wide" data-act="ready">Я запам'ятав</button><div id="dots"></div>`}
         <button class="linkbtn" id="leaveBtn">Вийти з гри</button>`;
-    case 'names':
-      if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твій персонаж</div><div class="val">${esc(m.mine)}</div></div>${wait('Чекаємо інших…')}`;
-      return `${R.phaseTag(s)}<h1>Хто ти сьогодні?</h1>
-        <p class="muted">${m.isSpy ? `Ти шпигун. Вигадай персонажа, який пасує до теми «${esc(s.theme)}», щоб не спалитися.` : 'Натякни, що знаєш локацію, але так, щоб шпигун не здогадався.'}</p>
+    case 'names': {
+      const head = R.phaseTag(s, `Імена · ${Math.min(s.idx + 1, s.order.length)} з ${s.order.length}`);
+      if (cur === m.id) return `${head}<h1>Твоя черга: хто ти?</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Подивись, як назвалися інші, і вигадай персонажа, що пасує до теми «${esc(s.theme)}».` : 'Натякни, що знаєш локацію, але так, щоб шпигун не здогадався.'}</p>
         <input type="text" id="txt" maxlength="40" placeholder="Напр.: Охоронець Степан" autocomplete="off">
-        <button class="btn primary wide" id="send">Готово</button><div id="dots"></div>`;
+        <button class="btn primary wide" id="send">Готово</button>${R.namelist(s)}`;
+      return `${head}${m.mine ? `<div class="paper" style="--rot:1deg"><div class="lbl">Твій персонаж</div><div class="val">${esc(m.mine)}</div></div>` : ''}
+        <p class="muted center"><b style="color:var(--fg)">${esc(P(cur).name)}</b> вигадує ім'я…</p>${R.namelist(s)}`;
+    }
     case 'namesReveal':
       return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': {
@@ -429,7 +432,7 @@ function hostbarHtml() {
   if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
   if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
   if (s.phase === 'verdict') return '';   // рішення мирних не пропускається
-  const label = ['questions', 'items'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
+  const label = ['questions', 'items', 'names'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
   return `${tag}<button class="btn ghost small" data-host="next">${label}</button>`;
 }
 
@@ -445,7 +448,7 @@ function render() {
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
   const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, s.settings, s.players.map(p => p.score), Sound.on,
-    s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => [i.by, i.txt]) : 0, s.qa, s.res, s.end && s.end.reason]);
+    s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => [i.by, i.txt]) : 0, s.qa, s.named, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
     lastKey = key;
@@ -474,7 +477,7 @@ function render() {
   }
   // вібрація, коли твій хід
   const cur = s.order ? s.order[s.idx] : null;
-  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (s.phase === 'items' && cur === m.id) || (s.phase === 'guess' && m.isSpy);
+  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (['items', 'names'].includes(s.phase) && cur === m.id) || (s.phase === 'guess' && m.isSpy);
   const tk = turn ? [s.game, s.phase, s.qi, s.idx, s.stage].join() : '';
   if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); Sound.turn(); }
   Timer.tick();

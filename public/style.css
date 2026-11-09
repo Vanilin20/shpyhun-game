@@ -381,3 +381,13 @@ body.reconnecting::before{content:"Відновлюємо зв'язок із с�
 .tv .bub{font-size:28px}
 textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:80px;padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font:500 16px var(--body)}
 .item .txt{grid-column:1/-1;font-size:13px;font-style:italic;opacity:.85;overflow-wrap:anywhere}
+
+/* імена по колу */
+.namelist{display:grid;gap:8px}
+.nrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:var(--panel);border:1px solid var(--line);opacity:.55}
+.nrow.done{opacity:1}
+.nrow.cur{opacity:1;border-color:var(--gold);box-shadow:0 0 0 2px rgba(240,189,79,.2)}
+.nrow .pn{font:700 12px var(--mono);letter-spacing:.06em;color:var(--muted);min-width:64px}
+.nrow .cn{flex:1;text-align:right;font:800 17px var(--body);overflow-wrap:anywhere}
+.nrow.cur .cn{color:var(--gold);font-style:italic;font-weight:600}
+.tv .nrow .cn{font-size:26px}.tv .nrow .pn{font-size:16px}

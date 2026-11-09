@@ -204,6 +204,13 @@ const R = {
     root.querySelectorAll('[data-pace]').forEach(b => b.onclick = () => send('settings', { settings: { pace: +b.dataset.pace } }));
     root.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => { if (confirm('Скинути рахунок усім?')) send('resetScore'); });
   },
+  // імена по колу: хто вже назвався, хто зараз
+  namelist(st) {
+    const named = st.named || {};
+    return `<div class="namelist">${st.order.map((id, i) => { const p = R.P(st, id), n = named[id];
+      return `<div class="nrow ${i === st.idx ? 'cur' : ''} ${n ? 'done' : ''}">${av(p)}<span class="pn">${esc(p.name)}</span>
+        <span class="cn">${n ? esc(n) : i === st.idx ? 'вигадує…' : '·  ·  ·'}</span></div>`; }).join('')}</div>`;
+  },
   // питання й відповідь текстом (режим «на відстані»)
   qa(st, noWait = false) {
     const q = st.qa || {}, cur = st.order[st.idx];
