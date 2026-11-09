@@ -116,6 +116,14 @@ function view() {
     case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
     case 'emoji': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">😶‍🌫️</span><h1>Три емодзі</h1><p class="muted">Кожен описує локацію трьома емодзі. Потім усі з'являться тут.</p></div>`;
     case 'emojiReveal': return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
+    case 'scene': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🧩</span><h1>Складаємо сцени</h1><p class="muted">Кожен складає місце з 1–5 наліпок. Потім усі сцени з'являться тут.</p></div>`;
+    case 'sceneReveal': return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
+    case 'clock': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🕰️</span><h1>Годинник</h1>
+      <div style="display:grid;gap:8px;font-size:22px">${s.cq.map(c => `<div>${esc(c.q)}</div>`).join('')}</div><p class="muted">Відповідайте на телефонах.</p></div>`;
+    case 'clockReveal': return `${R.phaseTag(s)}<h1>Хто що відповів</h1>${R.clockReveal(s)}`;
+    case 'notes': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">✉️</span><h1>Анонімні записки</h1>
+      <p class="muted">${s.stage === 'ask' ? 'Кожен пише питання — його отримає випадковий гравець.' : 'Тепер кожен анонімно відповідає на записку.'}</p></div>`;
+    case 'notesReveal': return `${R.phaseTag(s)}<h1>Анонімні записки</h1><div style="max-width:1000px;width:100%;margin:0 auto">${R.notes(s)}</div>`;
     case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
       <span class="stamp big">Голосування${s.voteNo === 2 ? ' №2' : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
     case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
@@ -137,7 +145,7 @@ function view() {
   return '';
 }
 
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'clockReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
 function actions() {
   if (!st.amHost) return '';
   if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`; }
@@ -152,14 +160,14 @@ function render() {
   $('#codeChip').hidden = false; $('#codeChip').textContent = 'КОД ' + s.code;
   $('#themeChip').hidden = !s.theme; $('#themeChip').textContent = s.theme || '';
   const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.qa, s.named, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
-    s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0]);
+    s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0, s.scenes ? Object.keys(s.scenes) : 0, s.stage]);
   if (key !== lastKey) {
     lastKey = key;
     $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:24px">${view()}</div>`;
     $('#main').querySelectorAll('[data-kick]').forEach(b => b.onclick = () => act('kick', { target: b.dataset.kick }));
     R.bindSettings($('#main'), s, act);
     if ($('#soundBtn')) $('#soundBtn').onclick = () => { Sound.toggle(); lastKey = ''; render(); };
-    if (['namesReveal', 'drawReveal', 'emojiReveal', 'voteResult', 'wordsReveal', 'end'].includes(s.phase)) Sound.reveal();
+    if (['namesReveal', 'drawReveal', 'emojiReveal', 'sceneReveal', 'clockReveal', 'notesReveal', 'voteResult', 'wordsReveal', 'end'].includes(s.phase)) Sound.reveal();
     if ($('#nextUrl')) $('#nextUrl').onclick = () => { urlIdx++; lastKey = ''; render(); };
     R.bindZoom($('#main'));
     if (s.phase === 'end') confetti();

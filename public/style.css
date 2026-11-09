@@ -391,3 +391,46 @@ textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:80px;paddin
 .nrow .cn{flex:1;text-align:right;font:800 17px var(--body);overflow-wrap:anywhere}
 .nrow.cur .cn{color:var(--gold);font-style:italic;font-weight:600}
 .tv .nrow .cn{font-size:26px}.tv .nrow .pn{font-size:16px}
+
+/* годинник */
+.clocks{display:grid;gap:16px}
+.clockcard{display:grid;gap:10px;justify-items:center}
+.clockcard .lbl{justify-self:start}
+.dial{max-width:100%;height:auto}
+.dial .face{fill:#fffaf0;stroke:var(--paper-ink);stroke-width:3}
+.dial .tk{stroke:rgba(35,29,20,.35);stroke-width:1.5}.dial .tk.big{stroke:var(--paper-ink);stroke-width:3}
+.dial .hl{font:800 14px var(--body);fill:var(--paper-ink);text-anchor:middle;dominant-baseline:central}
+.dial .hl.sm{font-size:14px}
+.dial .hand{stroke:var(--red);stroke-width:5;stroke-linecap:round}
+.dial .pin{fill:var(--red)}
+.dial .ray{stroke:hsl(var(--h) 60% 45%);stroke-width:2;opacity:.45}
+.dial .mk{fill:hsl(var(--h) 55% 42%);stroke:#fff;stroke-width:2}
+.dial .mkt{font:800 11px var(--body);fill:#fff;text-anchor:middle;dominant-baseline:central}
+.crows{display:grid;gap:4px;width:100%}
+.crow{display:flex;align-items:center;gap:8px;font-size:14px}.crow span{flex:1}.crow b{font:800 15px var(--mono)}
+.span-scale{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;width:100%;align-items:end}
+.span-scale .sp{display:grid;justify-items:center;gap:4px;border-bottom:3px solid var(--paper-ink);padding-bottom:4px}
+.span-scale .sp span{font:700 9px var(--mono);text-align:center;line-height:1.1;min-height:20px}
+.span-scale .dots2{display:grid;gap:2px;justify-items:center}
+.span-scale .av{width:22px;height:22px;font-size:11px}
+.clock-in{display:grid;gap:10px;justify-items:center}
+.clock-in .val{font:800 30px var(--mono)}
+.clock-in input[type=range]{width:100%}
+.dial.input{touch-action:none;cursor:pointer}
+/* записки */
+.notes{display:grid;gap:14px}
+.note{display:grid;gap:8px}
+.note .nq{font-weight:700;font-size:16px}.note .nq::before{content:"✉️ ";}
+.note .na{font-size:17px;padding-left:12px;border-left:3px solid var(--red)}
+.tv .note .nq{font-size:24px}.tv .note .na{font-size:26px}
+.tv .clocks{grid-template-columns:repeat(3,1fr)}
+/* сцена */
+.scenewrap{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:1;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.scenewrap canvas{width:100%;height:100%;display:block;touch-action:none}
+.palette{display:grid;grid-template-columns:repeat(10,1fr);gap:4px}
+.palette button{font-size:24px;aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:var(--panel);padding:0;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.palette button:disabled{opacity:.3}
+.seltools{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.seltools .sz{min-width:44px}
+.crow .av{width:26px;height:26px;flex:none;font-size:12px}
+.dial .hl.sm{font-size:16px}

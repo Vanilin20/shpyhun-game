@@ -86,8 +86,8 @@ const RULES = `<details class="rules"><summary>Як грати</summary><ol>
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
   <li><b>Імена по колу:</b> по черзі кожен вигадує персонажа з натяком на локацію — і бачить імена тих, хто вже назвався.</li>
   <li><b>Допит по колу:</b> кожен питає наступного гравця вголос — 2 хвилини на питання.</li>
-  <li><b>Малюнок або предмет</b> (по черзі між партіями): намалюй локацію або обери предмет і до 2 хвилин розповідай, як він з нею пов'язаний.</li>
-  <li><b>Три емодзі:</b> за 2 хвилини опиши локацію трьома емодзі, потім усі бачать, хто що ввів.</li>
+  <li><b>Творчий раунд</b> (по черзі між партіями): малювання, предмети (обираєш і пояснюєш зв'язок з локацією) або сцена з 1–5 наліпок.</li>
+  <li><b>Швидкий раунд</b> (теж по черзі): три емодзі, годинник (питання про час) або анонімні записки.</li>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Мирним треба вигнати обох.</li>
@@ -254,6 +254,120 @@ function setupCanvas() {
   $('#clear').onclick = () => { hist.push(g.getImageData(0, 0, W, W)); g.fillStyle = '#fff'; g.fillRect(0, 0, W, W); };
   return { data: () => cv.toDataURL('image/jpeg', .7) };
 }
+
+// ---------- сцена з наліпок: 1–5 емодзі, рухати, крутити, збільшувати + домальовувати ----------
+let sceneApi = null, sceneSent = false;
+const EMOJI_FONT = '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+function setupScene() {
+  const cv = $('#sc'); if (!cv) return null;
+  const W = 600; cv.width = W; cv.height = W;
+  const g = cv.getContext('2d');
+  const ink = document.createElement('canvas'); ink.width = W; ink.height = W;   // шар домальовок
+  const gi = ink.getContext('2d'); gi.lineCap = 'round'; gi.lineJoin = 'round';
+  const st = []; let sel = -1, mode = 'move', color = '#1d1b18';
+  const ptrs = new Map(); let drag = null, gesture = null, lastPt = null;
+  function draw(clean = false) {
+    g.fillStyle = '#fbf6ea'; g.fillRect(0, 0, W, W);
+    g.drawImage(ink, 0, 0);
+    st.forEach((s, i) => {
+      g.save(); g.translate(s.x, s.y); g.rotate(s.r);
+      g.font = `${s.s}px ${EMOJI_FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText(s.e, 0, s.s * .05);
+      if (!clean && i === sel) { g.setLineDash([10, 8]); g.strokeStyle = '#e3412a'; g.lineWidth = 4; g.strokeRect(-s.s * .62, -s.s * .62, s.s * 1.24, s.s * 1.24); }
+      g.restore();
+    });
+  }
+  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * W / r.height]; };
+  const hit = (x, y) => { for (let i = st.length - 1; i >= 0; i--) { const s = st[i]; if (Math.hypot(x - s.x, y - s.y) < s.s * .65) return i; } return -1; };
+  function tools() {
+    const box = $('#seltools'); if (!box) return;
+    box.hidden = mode !== 'move' || sel < 0;
+    $('#pal').querySelectorAll('button').forEach(b => b.disabled = st.length >= 5);
+    $('#scCount').textContent = `${st.length} / 5`;
+    $('#send').disabled = !st.length;
+  }
+  cv.onpointerdown = e => {
+    cv.setPointerCapture(e.pointerId);
+    const p = pos(e); ptrs.set(e.pointerId, p);
+    if (mode === 'draw') { lastPt = p; gi.strokeStyle = color; gi.lineWidth = 7; gi.beginPath(); gi.arc(p[0], p[1], 3.5, 0, 7); gi.fillStyle = color; gi.fill(); draw(); return; }
+    if (ptrs.size === 2 && sel >= 0) {   // два пальці: масштаб і поворот
+      const [a, b] = [...ptrs.values()]; const s = st[sel];
+      gesture = { d: Math.hypot(b[0] - a[0], b[1] - a[1]), a: Math.atan2(b[1] - a[1], b[0] - a[0]), s: s.s, r: s.r }; drag = null; return;
+    }
+    const i = hit(p[0], p[1]); sel = i;
+    if (i >= 0) { const s = st.splice(i, 1)[0]; st.push(s); sel = st.length - 1; drag = { dx: p[0] - s.x, dy: p[1] - s.y }; }
+    draw(); tools();
+  };
+  cv.onpointermove = e => {
+    if (!ptrs.has(e.pointerId)) return;
+    const p = pos(e); ptrs.set(e.pointerId, p);
+    if (mode === 'draw') { if (lastPt) { gi.beginPath(); gi.moveTo(lastPt[0], lastPt[1]); gi.lineTo(p[0], p[1]); gi.stroke(); lastPt = p; draw(); } return; }
+    if (gesture && ptrs.size === 2 && sel >= 0) {
+      const [a, b] = [...ptrs.values()], s = st[sel];
+      s.s = Math.max(30, Math.min(360, gesture.s * Math.hypot(b[0] - a[0], b[1] - a[1]) / gesture.d));
+      s.r = gesture.r + Math.atan2(b[1] - a[1], b[0] - a[0]) - gesture.a; draw(); return;
+    }
+    if (drag && sel >= 0) { const s = st[sel]; s.x = Math.max(0, Math.min(W, p[0] - drag.dx)); s.y = Math.max(0, Math.min(W, p[1] - drag.dy)); draw(); }
+  };
+  cv.onpointerup = cv.onpointercancel = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) gesture = null; if (!ptrs.size) { drag = null; lastPt = null; } };
+  $('#pal').querySelectorAll('button').forEach(b => b.onclick = () => {
+    if (st.length >= 5) return toast('Максимум 5 наліпок');
+    st.push({ e: b.dataset.e, x: W / 2 + (Math.random() - .5) * 120, y: W / 2 + (Math.random() - .5) * 120, s: 120, r: 0 });
+    sel = st.length - 1; setMode('move'); draw(); tools();
+  });
+  const act = { rl: s => s.r -= Math.PI / 12, rr: s => s.r += Math.PI / 12, sm: s => s.s = Math.max(30, s.s / 1.2), bg: s => s.s = Math.min(360, s.s * 1.2) };
+  document.querySelectorAll('[data-st]').forEach(b => b.onclick = () => {
+    if (sel < 0) return;
+    if (b.dataset.st === 'del') { st.splice(sel, 1); sel = -1; } else act[b.dataset.st](st[sel]);
+    draw(); tools();
+  });
+  function setMode(m) {
+    mode = m; if (m === 'draw') sel = -1;
+    document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+    $('#inkcolors').hidden = m !== 'draw'; draw(); tools();
+  }
+  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+  document.querySelectorAll('[data-ink]').forEach(b => b.onclick = () => { color = b.dataset.ink; document.querySelectorAll('[data-ink]').forEach(x => x.classList.toggle('on', x === b)); });
+  $('#inkClear').onclick = () => { gi.clearRect(0, 0, W, W); draw(); };
+  draw(); tools();
+  return { data: () => { draw(true); const d = cv.toDataURL('image/jpeg', .72); draw(); return d; }, count: () => st.length };
+}
+async function sendScene() {
+  if (sceneSent || !sceneApi) return;
+  sceneSent = true;
+  await api('scene', { img: sceneApi.data() });
+}
+
+// ---------- годинник: 24-годинний циферблат під пальцем ----------
+let clockAns = [];
+function setupClock() {
+  const box = $('#clockIn'); if (!box) return;
+  clockAns = st.cq.map(c => (c.t === 'h' ? null : 3));
+  const paint = () => {
+    st.cq.forEach((c, i) => {
+      const el = box.querySelector(`[data-ci="${i}"]`);
+      if (c.t === 'h') { el.querySelector('.dialbox').innerHTML = R.dial([], 240, clockAns[i]).replace('class="dial"', 'class="dial input"'); el.querySelector('.val').textContent = clockAns[i] == null ? '--:--' : R.hhmm(clockAns[i]); }
+      else el.querySelector('.val').textContent = R.SPANS[clockAns[i]];
+    });
+    $('#send').disabled = clockAns.some(x => x == null);
+  };
+  st.cq.forEach((c, i) => {
+    const el = box.querySelector(`[data-ci="${i}"]`);
+    if (c.t === 'h') {
+      const db = el.querySelector('.dialbox');
+      const set = e => {
+        const r = db.getBoundingClientRect(), x = e.clientX - r.left - r.width / 2, y = e.clientY - r.top - r.height / 2;
+        let a = Math.atan2(y, x) + Math.PI / 2; if (a < 0) a += 2 * Math.PI;
+        clockAns[i] = ((Math.round(a / (2 * Math.PI) * 48) + 24) % 48) / 2; paint();
+      };
+      db.onpointerdown = e => { db.setPointerCapture(e.pointerId); set(e); db.onpointermove = set; };
+      db.onpointerup = db.onpointercancel = () => { db.onpointermove = null; };
+    } else el.querySelector('input').oninput = e => { clockAns[i] = +e.target.value; paint(); };
+  });
+  paint();
+  $('#send').onclick = () => { if (clockAns.some(x => x == null)) return toast('Відповідай на всі 3 питання'); $('#send').disabled = true; api('clock', { ans: clockAns }); };
+}
+
 async function sendDrawing() {
   if (drawSent || !canvasApi) return;
   drawSent = true;
@@ -368,6 +482,48 @@ function screenHtml() {
     }
     case 'emojiReveal':
       return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
+    case 'scene':
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші складають сцени…')}`;
+      if (m.mine || sceneSent) return `${R.phaseTag(s)}${wait('Сцену здано. Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Склади сцену</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Склади щось, що пасує до теми «${esc(s.theme)}».` : 'Від 1 до 5 наліпок: як виглядає це місце? Двома пальцями — крутити й збільшувати.'}</p>
+        <div class="scenewrap"><canvas id="sc"></canvas></div>
+        <div class="seltools"><button class="sz on" data-mode="move">✋ Наліпки</button><button class="sz" data-mode="draw">✏️ Малювати</button><span class="chip mono" id="scCount">0 / 5</span></div>
+        <div class="seltools" id="seltools" hidden><button class="sz" data-st="rl">⟲</button><button class="sz" data-st="rr">⟳</button><button class="sz" data-st="sm">➖</button><button class="sz" data-st="bg">➕</button><button class="sz" data-st="del">🗑</button></div>
+        <div class="seltools" id="inkcolors" hidden>${['#1d1b18', '#e3412a', '#2f6fd2', '#2f9d55', '#e8b62c', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-ink="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}<button class="sz" id="inkClear">Стерти</button></div>
+        <div class="palette" id="pal">${s.stickers.map(e => `<button data-e="${e}">${e}</button>`).join('')}</div>
+        <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
+    case 'sceneReveal':
+      return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
+    case 'clock':
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші відповідають…')}`;
+      if (m.mine) return `${R.phaseTag(s)}${wait('Відповіді здано. Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Годинник</h1>
+        <p class="muted">${m.isSpy ? 'Ти шпигун. Відповідай так, щоб не вибиватися з інших.' : 'Відповідай про цю локацію.'}</p>
+        <div id="clockIn" class="clocks">${s.cq.map((c, i) => `<div class="paper clock-in" data-ci="${i}" style="${rot(i)}"><div class="lbl">${esc(c.q)}</div>
+          ${c.t === 'h' ? '<div class="dialbox"></div><div class="val">--:--</div><p class="muted" style="margin:0;font-size:12px;color:#6b5f48">Тицяй або веди пальцем по циферблату (24 год)</p>'
+            : `<div class="val"></div><input type="range" min="0" max="7" step="1" value="3">`}</div>`).join('')}</div>
+        <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
+    case 'clockReveal':
+      return `${R.phaseTag(s)}<h1>Хто що відповів</h1>${R.clockReveal(s)}`;
+    case 'notes': {
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть записки…')}`;
+      if (s.stage === 'ask') {
+        if (m.mine) return `${R.phaseTag(s)}${wait('Записку відправлено. Чекаємо інших…')}`;
+        return `${R.phaseTag(s)}<h1>Анонімна записка</h1>
+          <p class="muted">Напиши питання про локацію. Його отримає випадковий гравець, і ніхто не дізнається, що це ти.${m.isSpy ? ' Ти шпигун — питання може тобі щось підказати 😉' : ''}</p>
+          <textarea id="rtxt" maxlength="160" rows="3" placeholder="Напр.: Що ти тут боїшся загубити?"></textarea>
+          <button class="btn primary wide" id="rsend" data-a="note">Відправити</button><div id="dots"></div>`;
+      }
+      if (!m.noteQ) return `${R.phaseTag(s)}${wait('Інші відповідають на записки…')}`;
+      if (m.mine) return `${R.phaseTag(s)}${wait('Відповідь відправлено. Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Тобі записка</h1>
+        <div class="paper note" style="--rot:-1deg"><div class="nq">${esc(m.noteQ)}</div></div>
+        <textarea id="rtxt" maxlength="160" rows="3" placeholder="Анонімна відповідь…"></textarea>
+        <button class="btn primary wide" id="rsend" data-a="note">Відповісти</button><div id="dots"></div>`;
+    }
+    case 'notesReveal':
+      return `${R.phaseTag(s)}<h1>Анонімні записки</h1>${R.notes(s)}`;
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
@@ -420,7 +576,7 @@ function screenHtml() {
 }
 
 // ---------- кнопки ведучого ----------
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'clockReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';
@@ -445,6 +601,7 @@ function render() {
   const th = $('#themeChip'); th.hidden = !s.theme; th.textContent = s.theme || '';
   $('#roleBtn').hidden = ['lobby', 'end'].includes(s.phase) || (s.phase === 'roles' && !m.mine);
   if (s.phase !== 'drawing') { drawSent = false; canvasApi = null; }
+  if (s.phase !== 'scene') { sceneSent = false; sceneApi = null; }
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
   const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, s.settings, s.players.map(p => p.score), Sound.on,
@@ -507,6 +664,8 @@ function bind() {
     else $('#copyBtn').click();
   };
   if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); $('#send').onclick = sendDrawing; return; }
+  if (st.phase === 'scene' && $('#sc')) { sceneApi = setupScene(); $('#send').onclick = sendScene; return; }
+  if (st.phase === 'clock' && $('#clockIn')) { setupClock(); return; }
   const btn = $('#send'), txt = $('#txt');
   if (btn && txt && st.phase === 'emoji') {
     const seg = new Intl.Segmenter('uk', { granularity: 'grapheme' });
@@ -535,6 +694,9 @@ function bind() {
 setInterval(() => {
   if (st && st.phase === 'drawing' && me() && me().alive && !me().mine && canvasApi) {
     const l = Timer.left(); if (l != null && l <= 2000) sendDrawing();
+  }
+  if (st && st.phase === 'scene' && me() && me().alive && !me().mine && sceneApi && sceneApi.count()) {
+    const l = Timer.left(); if (l != null && l <= 2000) sendScene();
   }
 }, 300);
 

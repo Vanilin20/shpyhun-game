@@ -115,6 +115,7 @@ const PHASE_NAME = {
   roles: 'Досьє', names: 'Імена', namesReveal: 'Імена', questions: 'Допит', drawing: 'Малювання', drawReveal: 'Галерея',
   items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
   words: 'Одне слово', wordsReveal: 'Слова', end: 'Справу закрито',
+  scene: 'Сцена', sceneReveal: 'Сцени', clock: 'Годинник', clockReveal: 'Годинник', notes: 'Записки', notesReveal: 'Записки',
 };
 const rot = i => `--rot:${[-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9][i % 8]}deg`;
 
@@ -134,9 +135,9 @@ const R = {
       <div class="card" style="animation-delay:${i * .12}s"><div class="paper" style="${rot(i)}">
         <div class="who">${av(p)}${esc(p.char || p.name)}</div>${cls === 'emo' ? `<div class="emo-row">${((st[field] || {})[p.id] || '').split(' ').filter(Boolean).map(e => `<span>${esc(e)}</span>`).join('') || '—'}</div>` : `<div class="big">${esc((st[field] || {})[p.id] || '—')}</div>`}</div></div>`).join('')}</div>`;
   },
-  gallery(st) {
+  gallery(st, field = 'drawings') {
     return `<div class="gallery">${R.alive(st).map((p, i) => {
-      const img = st.drawings && st.drawings[p.id];
+      const img = st[field] && st[field][p.id];
       return `<div class="polaroid" style="${rot(i)};animation-delay:${i * .15}s" ${img ? `data-zoom="${i}"` : ''}>
         ${img ? `<img src="${img}" alt="Малюнок: ${esc(p.char || p.name)}">` : '<div class="none">🙈</div>'}
         <div class="cap">${av(p)}${esc(p.char || p.name)}</div></div>`;
@@ -190,12 +191,14 @@ const R = {
     const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
     return `<div class="settings">
       <span class="label">Раунди${ed ? ' · тисни, щоб увімкнути чи вимкнути' : ''}</span>
-      <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('emoji', '😀 Емодзі')}</div>
+      <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('scene', '🧩 Сцена')}</div>
+      <p class="muted" style="font-size:13px;margin:0">Творчий раунд — один за партію, по черзі з увімкнених.</p>
+      <div class="chips">${chip('emoji', '😀 Емодзі')}${chip('clock', '🕰️ Годинник')}${chip('notes', '✉️ Записки')}</div>
+      <p class="muted" style="font-size:13px;margin:0">Швидкий раунд перед голосуванням — теж один, по черзі.</p>
       <span class="label">Режим</span>
       <div class="chips"><button class="opt-chip on" ${ed ? 'data-remote="0"' : 'disabled'} ${s.remote ? 'style="text-decoration:line-through;opacity:.75;background:var(--panel);color:var(--muted);border-color:var(--line)"' : ''}>🛋️ Поруч — уголос</button>
         <button class="opt-chip ${s.remote ? 'on' : ''}" ${ed ? 'data-remote="1"' : 'disabled'}>🌐 На відстані — текстом</button></div>
       ${s.remote ? '<p class="muted" style="font-size:13px;margin:0">Питання, відповіді й пояснення до предметів пишуться в грі. Є чат 💬. Голос — за бажанням у Discord/Telegram.</p>' : ''}
-      ${s.drawing && s.items ? '<p class="muted" style="font-size:13px;margin:0">Малювання й предмети чергуються між партіями.</p>' : ''}
       <span class="label">Темп (час на етапи)</span><div class="chips">${pace}</div></div>`;
   },
   bindSettings(root, st, send) {
@@ -210,6 +213,46 @@ const R = {
     return `<div class="namelist">${st.order.map((id, i) => { const p = R.P(st, id), n = named[id];
       return `<div class="nrow ${i === st.idx ? 'cur' : ''} ${n ? 'done' : ''}">${av(p)}<span class="pn">${esc(p.name)}</span>
         <span class="cn">${n ? esc(n) : i === st.idx ? 'вигадує…' : '·  ·  ·'}</span></div>`; }).join('')}</div>`;
+  },
+  // годинник: 24-годинний циферблат з мітками гравців / шкала тривалості
+  SPANS: ['5 хв', '15 хв', '30 хв', '1 год', '2 год', '4 год', 'пів дня', 'цілий день'],
+  hhmm: h => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`,
+  dial(marks, size = 240, hand = null) {
+    const c = size / 2, R0 = c - 26;
+    const ang = h => ((h - 12) / 24) * 2 * Math.PI - Math.PI / 2;   // полудень угорі, північ унизу
+    let svg = `<svg class="dial" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><circle cx="${c}" cy="${c}" r="${c - 4}" class="face"/>`;
+    for (let h = 0; h < 24; h++) {
+      const a = ang(h), big = h % 6 === 0, r1 = c - 6, r2 = c - (big ? 16 : 11);
+      svg += `<line x1="${c + r1 * Math.cos(a)}" y1="${c + r1 * Math.sin(a)}" x2="${c + r2 * Math.cos(a)}" y2="${c + r2 * Math.sin(a)}" class="${big ? 'tk big' : 'tk'}"/>`;
+      if (big) svg += `<text x="${c + (c - 30) * Math.cos(a)}" y="${c + (c - 30) * Math.sin(a)}" class="hl">${h}</text>`;
+    }
+    svg += `<text x="${c}" y="${c - 46}" class="hl sm">☀️</text><text x="${c}" y="${c + 50}" class="hl sm">🌙</text>`;
+    if (hand != null) { const a = ang(hand); svg += `<line x1="${c}" y1="${c}" x2="${c + R0 * .8 * Math.cos(a)}" y2="${c + R0 * .8 * Math.sin(a)}" class="hand"/><circle cx="${c}" cy="${c}" r="6" class="pin"/>`; }
+    // мітки гравців: однакові години — на різних радіусах
+    const at = {};
+    for (const m of marks) {
+      const k = m.h, n = at[k] = (at[k] || 0) + 1, a = ang(m.h), r = R0 - 30 - (n - 1) * 24;
+      svg += `<line x1="${c}" y1="${c}" x2="${c + r * Math.cos(a)}" y2="${c + r * Math.sin(a)}" class="ray" style="--h:${m.hue}"/>
+        <circle cx="${c + r * Math.cos(a)}" cy="${c + r * Math.sin(a)}" r="11" class="mk" style="--h:${m.hue}"/>
+        <text x="${c + r * Math.cos(a)}" y="${c + r * Math.sin(a)}" class="mkt">${esc(m.l)}</text>`;
+    }
+    return svg + '</svg>';
+  },
+  clockReveal(st) {
+    const ans = st.clockAns || {}, ps = R.alive(st).filter(p => ans[p.id]);
+    const letter = p => ([...dn(p).trim()][0] || '?').toUpperCase();
+    return `<div class="clocks">${st.cq.map((c, i) => {
+      const rows = ps.map(p => `<div class="crow">${av(p)}<span>${esc(dn(p))}</span><b>${c.t === 'h' ? R.hhmm(ans[p.id][i]) : R.SPANS[ans[p.id][i]]}</b></div>`).join('') || '<p class="muted">Ніхто не відповів</p>';
+      const pic = c.t === 'h'
+        ? R.dial(ps.map(p => ({ h: ans[p.id][i], hue: hueOf(p.name), l: letter(p) })))
+        : `<div class="span-scale">${R.SPANS.map((l, k) => `<div class="sp"><div class="dots2">${ps.filter(p => ans[p.id][i] === k).map(p => av(p)).join('')}</div><span>${l}</span></div>`).join('')}</div>`;
+      return `<div class="paper clockcard" style="${rot(i)}"><div class="lbl">${esc(c.q)}</div>${pic}<div class="crows">${rows}</div></div>`;
+    }).join('')}</div>`;
+  },
+  // анонімні записки
+  notes(st) {
+    return `<div class="notes">${(st.notes || []).map((n, i) => `<div class="paper note" style="${rot(i)};animation-delay:${i * .12}s">
+      <div class="nq">${esc(n.q)}</div><div class="na">${esc(n.a)}</div></div>`).join('') || '<p class="muted center">Записок нема</p>'}</div>`;
   },
   // питання й відповідь текстом (режим «на відстані»)
   qa(st, noWait = false) {
