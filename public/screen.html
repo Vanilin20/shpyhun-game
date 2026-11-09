@@ -125,12 +125,12 @@ function view() {
       <p class="muted">${s.stage === 'ask' ? 'Кожен пише питання — його отримає випадковий гравець.' : 'Тепер кожен анонімно відповідає на записку.'}</p></div>`;
     case 'notesReveal': return `${R.phaseTag(s)}<h1>Анонімні записки</h1><div style="max-width:1000px;width:100%;margin:0 auto">${R.notes(s)}</div>`;
     case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
-      <span class="stamp big">Голосування${s.voteNo === 2 ? ' №2' : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
+      <span class="stamp big">Голосування${s.voteNo > 1 ? ' №' + s.voteNo : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
     case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
       return `<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>Вигнали: ${esc(dn(out))}</h1>` : '<h1>Нікого не вигнали</h1>'}<p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>
         <div style="max-width:760px;width:100%;margin:0 auto">${R.bars(s)}</div>`; }
     case 'guess': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:6vh"><span style="font-size:90px">🕶️</span><h1>Шанс шпигуна</h1>
-      <p class="muted" style="font-size:20px">Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.</p></div>`;
+      <p class="muted" style="font-size:20px">${s.spies > 1 ? 'Кожен шпигун може окремо назвати локацію. Вгадає — перемога шпигунів. Помилиться — вибуває.' : 'Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.'}</p></div>`;
     case 'verdict': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh"><span class="label">Шпигун каже</span>
       <div class="paper" style="--rot:-1.5deg;min-width:min(600px,90vw)"><div class="val" style="font-size:40px">«${esc(s.guess)}»</div></div>
       <p class="muted" style="font-size:20px">Мирні вирішують на телефонах, чи це правильно.</p></div>`;

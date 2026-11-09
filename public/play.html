@@ -89,7 +89,7 @@ const RULES = `<details class="rules"><summary>Як грати</summary><ol>
     <li><b>Два випадкові раунди</b> щогри — один після імен, другий перед голосуванням: малювання, предмети, сцена з наліпок, три емодзі, годинник або анонімні записки.</li>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
-  <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Мирним треба вигнати обох.</li>
+  <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Кожен окремо може назвати локацію: помилився — вибуває лише він. Голосувань до трьох (перед третім — ще один випадковий раунд). Мирним треба вигнати обох.</li>
   <li><b>Граєте не разом?</b> Ведучий вмикає «На відстані»: питання, відповіді й пояснення пишуться в грі, а для розмов є чат 💬.</li>
   <li><b>Рахунок:</b> перемога шпигуна — +2 кожному шпигуну, перемога мирних — +1 кожному мирному.</li></ol></details>`;
 
@@ -526,7 +526,7 @@ function screenHtml() {
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
-      return `${R.phaseTag(s, s.voteNo === 2 ? 'Голосування №2' : 'Голосування')}${notice()}<h1>Хто шпигун?</h1>
+      return `${R.phaseTag(s, s.voteNo > 1 ? 'Голосування №' + s.voteNo : 'Голосування')}${notice()}<h1>Хто шпигун?</h1>
         <div class="list">${cands.map(p => `<button class="btn opt ${m.vote === p.id ? 'sel' : ''}" data-vote="${p.id}">${av(p)}<span>${esc(dn(p))}</span></button>`).join('')}</div>
         <p class="muted center">${m.vote ? 'Голос прийнято. Поки інші думають, можна змінити.' : 'Голосування таємне.'}</p><div id="dots"></div>`;
     }
@@ -536,11 +536,11 @@ function screenHtml() {
         <p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>${R.bars(s)}`;
     }
     case 'guess':
-      if (m.canGuess) return `${R.phaseTag(s)}<span class="stamp">Остання спроба</span><h1>Назви локацію</h1>
-        <p class="muted">Вгадаєш — перемога${m.partners.length ? ' для обох' : ''}. Помилишся — програш. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.</p>
+      if (m.canGuess) return `${R.phaseTag(s)}<span class="stamp">Шанс шпигуна</span><h1>Назви локацію</h1>
+        <p class="muted">Вгадаєш — перемога${m.partners.length ? ' для обох' : ''}. Помилишся — ${m.partnerIn ? 'вибуваєш ти, а напарник грає далі' : 'програш'}. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.${m.partnerIn ? ' Напарник вирішує окремо.' : ''}</p>
         <input type="text" id="txt" maxlength="60" placeholder="Локація…" autocomplete="off">
         <button class="btn primary wide" id="send">Ризикнути</button><button class="btn ghost wide" data-act="skip">Не ризикувати</button>`;
-      if (m.isSpy) return `${R.phaseTag(s)}${waiting('Чекаємо, що вирішить напарник…')}`;
+      if (m.isSpy) return `${R.phaseTag(s)}${waiting(m.guessed ? `Твоя здогадка: «<b>${esc(m.guessed)}</b>».<br>Чекаємо напарника…` : 'Чекаємо, що вирішить напарник…')}`;
       return `${R.phaseTag(s)}${outBanner()}${waiting(`<span style="font-size:42px">🕶️</span><b>${s.spies > 1 ? 'Шпигуни вирішують' : 'Шпигун вирішує'}, чи називати локацію…</b>`)}`;
     case 'verdict':
       if (m.isSpy) return `${R.phaseTag(s)}${waiting(`${s.guessBy === m.id ? 'Ти сказав' : 'Напарник сказав'} «<b>${esc(s.guess)}</b>».<br>Мирні вирішують…`)}`;
@@ -603,7 +603,7 @@ function render() {
   if (s.phase !== 'scene') { sceneSent = false; sceneApi = null; }
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, s.settings, s.players.map(p => p.score), Sound.on,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, m.canGuess, m.guessed, s.settings, s.players.map(p => p.score), Sound.on,
     s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => [i.by, i.txt]) : 0, s.qa, s.named, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;

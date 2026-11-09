@@ -123,7 +123,8 @@ const rot = i => `--rot:${[-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9][i % 8]}deg`
 const R = {
   P(st, id) { return st.players.find(p => p.id === id) || { name: '?', char: '' }; },
   alive(st) { return st.players.filter(p => p.alive); },
-  phaseTag(st, text) { return `<div class="phase-tag"><span class="dot"></span><span class="label">${esc(text || PHASE_NAME[st.phase] || '')}</span></div>`; },
+  // у додаткових раундах після голосування показуємо, що сталося (хто вибув)
+  phaseTag(st, text) { return `<div class="phase-tag"><span class="dot"></span><span class="label">${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
 
   names(st) {
     return `<div class="cards">${st.players.map((p, i) => `

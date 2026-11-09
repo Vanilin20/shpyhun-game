@@ -258,10 +258,16 @@ function createRoom(usedInit, code) {
   const isSpy = id => !!S.spyIds && S.spyIds.includes(id);
   // хто зі шпигунів може зараз назвати локацію: живі + щойно вигнаний
   const guessers = () => S.spyIds.filter(id => { const x = byId(id); return x && (x.alive || (S.res && S.res.out === id)); });
-  function toGuess() { S.phase = 'guess'; S.guess = ''; S.guessBy = null; S.skips = {}; setTimer(T('guess'), afterGuess); }
-  function afterGuess() {
-    if (S.guess) { S.phase = 'verdict'; S.verdict = {}; setTimer(T('verdict'), finishVerdict); }
-    else resolveNoGuess();
+  // Кожен шпигун може окремо назвати локацію. Здогадки мирні оцінюють по черзі:
+  // вгадав — шпигуни перемогли; помилився — вибуває лише той, хто помилився.
+  function toGuess() { S.phase = 'guess'; S.guess = ''; S.guessBy = null; S.skips = {}; S.pending = {}; S.wrong = []; setTimer(T('guess'), afterGuess); }
+  const guessDone = () => guessers().every(g => S.skips[g] || S.pending[g]);
+  function afterGuess() { S.queue = Object.entries(S.pending).map(([by, text]) => ({ by, text })); S.pending = {}; nextVerdict(); }
+  function nextVerdict() {
+    const g = S.queue.shift();
+    if (!g) return resolveNoGuess();
+    S.guess = g.text; S.guessBy = g.by; S.phase = 'verdict'; S.verdict = {};
+    setTimer(T('verdict'), finishVerdict);
   }
   const judges = () => players.filter(p => !isSpy(p.id));
   function finishVerdict() {
@@ -269,17 +275,31 @@ function createRoom(usedInit, code) {
     const yes = v.filter(Boolean).length, no = v.length - yes;
     S.tally = { yes, no };
     // більшість тих, хто проголосував; при нічиї — на користь шпигуна
-    if (yes > 0 && yes >= no) endGame('spy', 'guessed'); else endGame('town', 'wrong');
+    if (yes > 0 && yes >= no) return endGame('spy', 'guessed');
+    const p = byId(S.guessBy); if (p) p.alive = false;
+    S.wrong.push({ by: S.guessBy, guess: S.guess, tally: S.tally });
+    nextVerdict();
   }
   function resolveNoGuess() {
     const out = S.res && S.res.out;
     const spiesLeft = S.spyIds.filter(id => byId(id) && byId(id).alive).length;
-    if (!spiesLeft) return endGame('town', 'caught');
+    const last = S.wrong && S.wrong[S.wrong.length - 1];
+    if (last) { S.guess = last.guess; S.guessBy = last.by; S.tally = last.tally; }
+    if (!spiesLeft) return endGame('town', last ? 'wrong' : 'caught');
     if (alive().length - spiesLeft <= spiesLeft) return endGame('spy', 'fewLeft');
-    if (S.voteNo >= 2) return endGame('spy', 'survived');
-    S.voteNo = 2;
+    const maxVotes = S.spyIds.length > 1 ? 3 : 2;   // з двома шпигунами — до 3 голосувань
+    if (S.voteNo >= maxVotes) return endGame('spy', 'survived');
+    S.voteNo++;
+    const parts = [!out ? 'Нікого не вигнали' : isSpy(out) ? `${nm(out)} — шпигун!${spiesLeft ? ' Але серед вас є ще один' : ''}` : `${nm(out)} — не шпигун`];
+    for (const w of S.wrong || []) if (w.by !== out) parts.push(`${nm(w.by)} — шпигун, помилився з локацією й вибуває`);
+    S.guess = ''; S.guessBy = null; S.tally = null;
+    if (S.voteNo === 3) {
+      // перед третім голосуванням — ще один випадковий раунд, якого не було в цій партії
+      const left = shuffle(ROUNDS.filter(k => room.settings[k] && !(S.slots || []).includes(k)));
+      if (left.length) { S.slots = (S.slots || [null, null]).slice(0, 2).concat(left[0]); startSlot(2); S.notice = parts.join('. '); return; }
+    }
     toWords();
-    S.notice = !out ? 'Нікого не вигнали' : isSpy(out) ? `${nm(out)} — шпигун! Але серед вас є ще один` : `${nm(out)} — не шпигун`;
+    S.notice = parts.join('. ');
   }
 
   function toWords() { S.phase = 'words'; S.sub = {}; setTimer(T('words'), revealWords); }
@@ -494,13 +514,13 @@ function createRoom(usedInit, code) {
       }
       case 'guess': {
         const t = String(b.text || '').trim().slice(0, 60);
-        if (S.phase === 'guess' && guessers().includes(id) && !S.skips[id] && t) { S.guess = t; S.guessBy = id; afterGuess(); }
+        if (S.phase === 'guess' && guessers().includes(id) && !S.skips[id] && !S.pending[id] && t) { S.pending[id] = t; if (guessDone()) afterGuess(); }
         return {};
       }
       case 'skip':
         if (S.phase === 'guess' && guessers().includes(id)) {
           S.skips[id] = true;
-          if (guessers().every(g => S.skips[g])) { S.guess = ''; afterGuess(); }
+          if (guessDone()) afterGuess();
         }
         return {};
       case 'verdict':
@@ -557,6 +577,7 @@ function createRoom(usedInit, code) {
     if (ph === 'clockReveal') v.clockAns = S.clockAns;
     if (ph === 'notesReveal') v.notes = S.notesOut;
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
+    if (ph === 'guess') v.done = guessers().filter(g => S.skips[g] || S.pending[g]);
     if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
     if (ph === 'emojiReveal') v.emojis = S.emojis;
     if (ph === 'names') { v.order = S.order; v.idx = S.idx; v.named = S.sub; }
@@ -582,7 +603,9 @@ function createRoom(usedInit, code) {
       v.me = {
         id: p.id, name: p.name, alive: p.alive !== false, isSpy: amSpy,
         partners: amSpy ? S.spyIds.filter(x => x !== p.id).map(nm) : [],
-        canGuess: ph === 'guess' && amSpy && guessers().includes(p.id) && !S.skips[p.id],
+        canGuess: ph === 'guess' && amSpy && guessers().includes(p.id) && !S.skips[p.id] && !(S.pending || {})[p.id],
+        guessed: ph === 'guess' && amSpy ? (S.pending || {})[p.id] || null : null,
+        partnerIn: amSpy && S.spyIds.some(x => x !== p.id && byId(x) && byId(x).alive),
         location: inGame && !amSpy ? S.location : null,
         mine: S.sub ? S.sub[p.id] || null : null,
         vote: S.votes ? S.votes[p.id] || null : null,
