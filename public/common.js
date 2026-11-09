@@ -191,10 +191,8 @@ const R = {
     const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
     return `<div class="settings">
       <span class="label">Раунди${ed ? ' · тисни, щоб увімкнути чи вимкнути' : ''}</span>
-      <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('scene', '🧩 Сцена')}</div>
-      <p class="muted" style="font-size:13px;margin:0">Творчий раунд — один за партію, по черзі з увімкнених.</p>
-      <div class="chips">${chip('emoji', '😀 Емодзі')}${chip('clock', '🕰️ Годинник')}${chip('notes', '✉️ Записки')}</div>
-      <p class="muted" style="font-size:13px;margin:0">Швидкий раунд перед голосуванням — теж один, по черзі.</p>
+      <div class="chips">${chip('drawing', '🎨 Малювання')}${chip('items', '🎁 Предмети')}${chip('scene', '🧩 Сцена')}${chip('emoji', '😀 Емодзі')}${chip('clock', '🕰️ Годинник')}${chip('notes', '✉️ Записки')}</div>
+      <p class="muted" style="font-size:13px;margin:0">Щогри випадково 2 різні з увімкнених: один після імен, другий перед голосуванням.</p>
       <span class="label">Режим</span>
       <div class="chips"><button class="opt-chip on" ${ed ? 'data-remote="0"' : 'disabled'} ${s.remote ? 'style="text-decoration:line-through;opacity:.75;background:var(--panel);color:var(--muted);border-color:var(--line)"' : ''}>🛋️ Поруч — уголос</button>
         <button class="opt-chip ${s.remote ? 'on' : ''}" ${ed ? 'data-remote="1"' : 'disabled'}>🌐 На відстані — текстом</button></div>
