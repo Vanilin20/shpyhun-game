@@ -253,7 +253,7 @@ button.item:active { transform: scale(.95); }
 .canvaswrap { background: #fff; border-radius: 14px; overflow: hidden; touch-action: none; box-shadow: 0 16px 30px -14px rgba(0, 0, 0, .8); }
 canvas { display: block; width: 100%; aspect-ratio: 1; touch-action: none; }
 .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.sw { width: 36px; height: 36px; border-radius: 50%; padding: 0; border: 3px solid transparent; cursor: pointer; box-shadow: 0 0 0 1px var(--line); }
+.sw { width: 32px; height: 32px; border-radius: 50%; padding: 0; border: 3px solid transparent; cursor: pointer; box-shadow: 0 0 0 1px var(--line); }
 .sw.on { border-color: var(--gold); transform: scale(1.1); }
 .sz { padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); font: 700 13px var(--body); cursor: pointer; }
 .sz.on { background: var(--paper); color: var(--paper-ink); }

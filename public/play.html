@@ -198,12 +198,36 @@ function setupCanvas() {
   const W = 480; cv.width = W; cv.height = W;
   const g = cv.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, W, W); g.lineCap = 'round'; g.lineJoin = 'round';
-  let color = '#1d1b18', size = 6, down = false, last = null;
+  let color = '#1d1b18', size = 6, down = false, last = null, fill = false;
+  // заливка: замкнена область кольору під пальцем (з допуском, щоб не лишались світлі краї)
+  const flood = (x0, y0) => {
+    x0 |= 0; y0 |= 0; if (x0 < 0 || y0 < 0 || x0 >= W || y0 >= W) return;
+    const img = g.getImageData(0, 0, W, W), d = img.data;
+    const n = parseInt(color.slice(1), 16), nr = n >> 16, ng = (n >> 8) & 255, nb = n & 255;
+    const i0 = (y0 * W + x0) * 4, r0 = d[i0], g0 = d[i0 + 1], b0 = d[i0 + 2];
+    if (Math.abs(r0 - nr) + Math.abs(g0 - ng) + Math.abs(b0 - nb) < 10) return;
+    const tol = 110, seen = new Uint8Array(W * W), stack = [y0 * W + x0];
+    const like = k => { const i = k * 4; return Math.abs(d[i] - r0) + Math.abs(d[i + 1] - g0) + Math.abs(d[i + 2] - b0) <= tol; };
+    const paint = k => { const i = k * 4; d[i] = nr; d[i + 1] = ng; d[i + 2] = nb; d[i + 3] = 255; };
+    while (stack.length) {
+      const k = stack.pop(); if (seen[k]) continue;
+      let x = k % W; const y = (k / W) | 0, row = y * W;
+      while (x > 0 && !seen[row + x - 1] && like(row + x - 1)) x--;
+      let up = false, dn = false;
+      for (; x < W && !seen[row + x] && like(row + x); x++) {
+        const q = row + x; seen[q] = 1; paint(q);
+        if (y > 0) { const a = q - W; if (!seen[a] && like(a)) { if (!up) { stack.push(a); up = true; } } else up = false; }
+        if (y < W - 1) { const b = q + W; if (!seen[b] && like(b)) { if (!dn) { stack.push(b); dn = true; } } else dn = false; }
+      }
+    }
+    g.putImageData(img, 0, 0);
+  };
   const hist = [];
   const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * W / r.height]; };
   cv.onpointerdown = e => {
     cv.setPointerCapture(e.pointerId);
     hist.push(g.getImageData(0, 0, W, W)); if (hist.length > 25) hist.shift();
+    if (fill) { const p = pos(e); flood(p[0], p[1]); return; }
     down = true; last = pos(e);
     g.fillStyle = color; g.beginPath(); g.arc(last[0], last[1], size / 2, 0, 7); g.fill();
   };
@@ -216,7 +240,8 @@ function setupCanvas() {
   };
   cv.onpointerup = cv.onpointercancel = () => { down = false; };
   document.querySelectorAll('.sw').forEach(b => b.onclick = () => { color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); });
-  document.querySelectorAll('.sz[data-s]').forEach(b => b.onclick = () => { size = +b.dataset.s; document.querySelectorAll('.sz[data-s]').forEach(x => x.classList.toggle('on', x === b)); });
+  const tools = [...document.querySelectorAll('.sz[data-s], #fill')];
+  tools.forEach(b => b.onclick = () => { fill = b.id === 'fill'; if (!fill) size = +b.dataset.s; tools.forEach(x => x.classList.toggle('on', x === b)); });
   $('#undo').onclick = () => { const h = hist.pop(); if (h) g.putImageData(h, 0, 0); };
   $('#clear').onclick = () => { hist.push(g.getImageData(0, 0, W, W)); g.fillStyle = '#fff'; g.fillRect(0, 0, W, W); };
   return { data: () => cv.toDataURL('image/jpeg', .7) };
@@ -285,8 +310,8 @@ function screenHtml() {
       return `${R.phaseTag(s)}<h1>Намалюй локацію</h1>
         <p class="muted">${m.isSpy ? `Ти шпигун — малюй щось, що пасує до теми «${esc(s.theme)}».` : 'Так, щоб свої впізнали, а шпигун — ні.'}</p>
         <div class="canvaswrap"><canvas id="cv"></canvas></div>
-        <div class="tools">${['#1d1b18', '#e3412a', '#2f6fd2', '#2f9d55', '#e8b62c', '#8a5a2b', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}</div>
-        <div class="tools"><button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button>
+        <div class="tools">${['#1d1b18', '#e3412a', '#f08a24', '#e8b62c', '#2f9d55', '#7cc6f2', '#2f6fd2', '#8e4ec6', '#f4a6c0', '#f1c9a5', '#8a5a2b', '#9a9a9a', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}</div>
+        <div class="tools"><button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button><button class="sz" id="fill">🪣 Заливка</button>
           <span class="grow"></span><button class="sz" id="undo">↶</button><button class="sz" id="clear">Стерти</button></div>
         <button class="btn primary wide" id="send">Здати малюнок</button>`;
     case 'drawReveal':
