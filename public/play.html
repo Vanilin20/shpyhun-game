@@ -3,183 +3,187 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#10141c">
+<meta name="theme-color" content="#090b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Шпигун</title>
-<style>
-  :root {
-    --bg: #10141c; --panel: #181e29; --line: #2a3242;
-    --fg: #eef1f6; --muted: #8d97a8;
-    --paper: #ece0c4; --paper-ink: #24201a;
-    --red: #d2442f; --ok: #6cc37a;
-    --display: "Courier New", Consolas, monospace;
-    --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  }
-  [hidden] { display: none !important; }
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; min-height: 100%; }
-  body { background: var(--bg); color: var(--fg); font: 17px/1.45 var(--body);
-         padding: env(safe-area-inset-top) max(16px, env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
-  header { display: flex; align-items: center; gap: 10px; padding: 12px 0; position: sticky; top: 0; background: var(--bg); z-index: 5; }
-  .me { font-weight: 700; }
-  .grow { flex: 1; }
-  .timer { font: 700 22px var(--display); font-variant-numeric: tabular-nums; }
-  .timer.low { color: var(--red); }
-  .rolebtn { background: var(--panel); color: var(--paper); border: 1px solid var(--line); padding: 8px 12px; font-size: 15px; }
-  main { display: grid; gap: 16px; padding-top: 6px; }
-  h1 { font: 700 26px/1.2 var(--display); margin: 0; text-wrap: balance; }
-  p { margin: 0; }
-  .muted { color: var(--muted); }
-  .center { text-align: center; }
-  button { font: 600 18px var(--body); border: 0; border-radius: 12px; padding: 16px; cursor: pointer; color: var(--fg); background: var(--panel); }
-  button:disabled { opacity: .45; }
-  .primary { background: var(--red); color: #fff; }
-  .wide { width: 100%; }
-  input[type=text] { width: 100%; font: 20px var(--body); padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
-  input[type=text]:focus { outline: 2px solid var(--paper); }
-  .list { display: grid; gap: 10px; }
-  .opt { text-align: left; display: flex; justify-content: space-between; align-items: center; }
-  .opt.sel { background: var(--red); color: #fff; }
-  .banner { padding: 10px 14px; border-radius: 10px; background: rgba(210,68,47,.15); border: 1px solid rgba(210,68,47,.45); color: #ffb3a6; font-weight: 600; }
-  .waiting { padding: 26px 16px; border: 1px dashed var(--line); border-radius: 14px; text-align: center; color: var(--muted); }
-  .waiting b { color: var(--fg); }
-
-  /* досьє з роллю */
-  .dossier { background: var(--paper); color: var(--paper-ink); border-radius: 8px; padding: 22px 20px; position: relative; overflow: hidden; min-height: 210px; box-shadow: 0 10px 30px rgba(0,0,0,.4); user-select: none; -webkit-user-select: none; }
-  .dossier .lbl { font: 700 12px var(--display); letter-spacing: .2em; text-transform: uppercase; opacity: .6; }
-  .dossier .val { font: 700 28px/1.2 var(--body); margin: 2px 0 14px; }
-  .dossier .val.spy { color: var(--red); font-family: var(--display); letter-spacing: .06em; }
-  .dossier .cover { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, #d9caa6 0 14px, #e3d5b3 14px 28px); display: grid; place-items: center; text-align: center; padding: 20px; font: 700 18px var(--display); color: var(--paper-ink); }
-  .dossier .cover .st { color: var(--red); border: 3px solid var(--red); padding: 6px 12px; transform: rotate(-5deg); margin-bottom: 10px; display: inline-block; letter-spacing: .1em; }
-  .dossier.open .cover { display: none; }
-  .overlay { position: fixed; inset: 0; background: rgba(5,7,12,.85); display: grid; place-items: center; padding: 20px; z-index: 20; }
-  .overlay .dossier { width: min(420px, 100%); }
-
-  /* малювання */
-  .canvaswrap { background: #fff; border-radius: 10px; overflow: hidden; touch-action: none; }
-  canvas { display: block; width: 100%; aspect-ratio: 1; touch-action: none; }
-  .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .sw { width: 38px; height: 38px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
-  .sw.on { border-color: var(--paper); }
-  .sz { padding: 8px 12px; font-size: 15px; }
-  .sz.on { background: var(--paper); color: var(--paper-ink); }
-
-  .items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .item { display: grid; gap: 2px; justify-items: center; padding: 12px 6px; font-size: 14px; }
-  .item .e { font-size: 34px; line-height: 1.1; }
-  .item.taken { opacity: .3; }
-  .bigitem { text-align: center; font-size: 64px; }
-</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Manrope:wght@500;600;700;800&family=Unbounded:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="/style.css">
 </head>
 <body>
-<header>
-  <span class="me" id="me"></span>
+<header class="top" id="top" hidden>
+  <span class="brand">ШПИ<b>Г</b>УН</span>
+  <span class="chip mono" id="codeChip"></span>
+  <span class="chip theme" id="themeChip" hidden></span>
   <span class="grow"></span>
-  <span class="timer" id="timer"></span>
-  <button class="rolebtn" id="rolebtn" hidden>Моя роль</button>
+  <button class="btn small" id="roleBtn" hidden aria-label="Моя роль">🕵️ Роль</button>
+  <span id="ringSlot"></span>
 </header>
-<main id="main"></main>
+<main class="wrap" id="main"></main>
+<div class="hostbar" id="hostbar" hidden><div class="inner"></div></div>
 <div class="overlay" id="overlay" hidden></div>
+<script src="/qrcode.js"></script>
+<script src="/common.js"></script>
 <script>
-const $ = s => document.querySelector(s);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// кімната: з QR-посилання (?r=КОД) або з попереднього входу
-const ls = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
+// ===== Шпигун — телефон гравця =====
+$('#ringSlot').innerHTML = Timer.html();
 const urlRoom = (new URLSearchParams(location.search).get('r') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
-let ROOM = urlRoom || ls.get('spy_room') || '';
-let myId = ls.get('spy_room') === ROOM ? ls.get('spy_id') : null;
-let st = null, off = 0, es = null, lastKey = '', drawSent = false, canvasApi = null;
+let SES = store.get('spy_session');           // { room, token, id }
+let st = null, live = null, lastKey = '', drawSent = false, canvasApi = null, buzzed = '', confettiFor = '';
 
-async function api(action, extra = {}) {
-  try {
-    const r = await fetch('/api', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, room: ROOM, id: myId, ...extra }) });
-    const out = await r.json();
-    if (pollTimer) pollOnce();
-    return out;
-  } catch (e) { return { error: "Немає зв'язку з грою" }; }
-}
-const P = id => (st.players.find(p => p.id === id) || { name: '?' });
-const left = () => st && st.endsAt ? Math.max(0, Math.ceil((st.endsAt - Date.now() - off) / 1000)) : null;
+const api = (action, extra = {}) => postApi({ action, room: SES && SES.room, token: SES && SES.token, ...extra })
+  .then(r => { if (r.error) toast(r.error); if (live) live.refresh(); return r; });
+const P = id => R.P(st, id);
+const me = () => st && st.me;
 
-const STATE_URL = () => `/state?room=${ROOM}&id=${encodeURIComponent(myId || '')}`;
-// живе оновлення: SSE, а якщо проксі його гальмує — опитування кожні 1.5 с
-let lastAct = 0, gotAny = false, connAt = 0, pollTimer = null;
-function onState(v) {
-  gotAny = true; lastAct = Date.now();
-  if (v.noRoom) { leaveRoom('Кімнату не знайдено. Перевір код на екрані ведучого.'); return; }
-  st = v; off = st.now - Date.now(); render();
-}
-function leaveRoom(msg) {
-  if (es) { es.close(); es = null; }
-  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  ls.set('spy_id', null); ls.set('spy_room', null);
-  myId = null; st = null; gotAny = false; connAt = 0;
-  joinScreen(msg, true);
-}
-function pollOnce() { return fetch(STATE_URL()).then(r => r.json()).then(onState).catch(() => {}); }
-function startPoll() { if (es) { es.close(); es = null; } if (!pollTimer) { pollTimer = setInterval(pollOnce, 1500); pollOnce(); } }
-setInterval(() => {
-  if (pollTimer) return;
-  if ((!gotAny && connAt && Date.now() - connAt > 6000) || (gotAny && Date.now() - lastAct > 40000)) startPoll();
-}, 2000);
-function connect() {
-  if (es) es.close();
-  if (!ROOM) return joinScreen();
-  connAt = Date.now();
-  if (pollTimer) { pollOnce(); return; }
-  es = new EventSource(`/events?room=${ROOM}&id=${encodeURIComponent(myId || '')}`);
-  es.onmessage = e => onState(JSON.parse(e.data));
-  es.addEventListener('ping', () => { lastAct = Date.now(); });
+function shareLink() {
+  const base = isLocalHost && st && st.lanUrls && st.lanUrls.length ? st.lanUrls[0] : location.origin + '/';
+  return base + '?r=' + (st ? st.code : '');
 }
 
 // ---------- вхід ----------
-function joinScreen(msg, clearCode) {
-  lastKey = 'join';
-  if (clearCode) ROOM = '';
-  const saved = ls.get('spy_name') || '';
-  $('#me').textContent = ''; $('#rolebtn').hidden = true;
-  $('#main').innerHTML = `
-    <h1>ШПИГУН</h1>
-    <p class="muted">Введи ім'я, під яким тебе знатимуть інші.</p>
-    ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
-    <input type="text" id="codeIn" maxlength="4" placeholder="Код кімнати (4 літери)" value="${esc(ROOM)}" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.2em" ${ROOM ? 'hidden' : ''}>
-    <input type="text" id="nameIn" maxlength="16" placeholder="Ім'я" value="${esc(saved)}" autocomplete="off">
-    <button class="primary wide" id="joinBtn">Увійти</button>`;
-  const go = async () => {
-    const name = $('#nameIn').value.trim();
-    const code = $('#codeIn').value.trim().toUpperCase().replace(/[^A-Z]/g, '');
-    if (code.length !== 4) { $('#codeIn').hidden = false; return $('#codeIn').focus(); }
-    if (!name) return $('#nameIn').focus();
-    ROOM = code;
-    const r = await api('join', { name });
-    if (r.error) return joinScreen(r.error, !!r.noRoom);
-    myId = r.id;
-    ls.set('spy_id', myId); ls.set('spy_room', ROOM); ls.set('spy_name', name);
-    lastKey = ''; connect();
-  };
-  $('#joinBtn').onclick = go;
-  $('#nameIn').onkeydown = e => { if (e.key === 'Enter') go(); };
+async function boot() {
+  if (SES && SES.room && (!urlRoom || urlRoom === SES.room)) {
+    const ex = await fetch(`/exists?room=${SES.room}&t=${SES.token}`).then(r => r.json()).catch(() => null);
+    if (ex && ex.ok && ex.player) return enter();
+    if (!ex) return home("Немає зв'язку з сервером. Онови сторінку.");
+    store.set('spy_session', null); SES = null;
+  }
+  if (urlRoom) return joinScreen(urlRoom);
+  home();
+}
+function enter() {
+  if (live) live.stop();
+  lastKey = ''; st = null;
+  history.replaceState(null, '', '/?r=' + SES.room);
+  live = Live({
+    room: SES.room, token: SES.token, onState,
+    onNoRoom: () => { store.set('spy_session', null); SES = null; live = null; history.replaceState(null, '', '/'); home('Цієї кімнати вже немає. Створи нову або введи інший код.'); },
+  });
+}
+function leave() {
+  api('leave');
+  if (live) live.stop(); live = null;
+  store.set('spy_session', null); SES = null; st = null;
+  history.replaceState(null, '', '/');
+  home();
+}
+function chrome(inRoom) {
+  $('#top').hidden = !inRoom;
+  if (!inRoom) { $('#hostbar').hidden = true; $('#overlay').hidden = true; }
 }
 
-// ---------- роль ----------
-function dossier(open) {
-  const m = st.me;
+const RULES = `<details class="rules"><summary>Як грати</summary><ol>
+  <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
+  <li><b>Імена:</b> вигадай персонажа з натяком на локацію.</li>
+  <li><b>Допит:</b> по черзі питаєте одне одного вголос — 2 хвилини на питання.</li>
+  <li><b>Малюнки або предмети:</b> намалюй локацію, або обери предмет і 2 хвилини розповідай, як він з нею пов'язаний.</li>
+  <li><b>Голосування.</b> Після нього шпигун може назвати локацію: вгадав — переміг, помилився — програв.</li>
+  <li><b>Одне слово</b> і друге голосування.</li>
+  <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Мирним треба вигнати обох.</li></ol></details>`;
+
+function home(msg) {
+  chrome(false); lastKey = 'home';
+  const saved = store.get('spy_name') || '';
+  $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:18px;padding-top:3vh">
+    <div class="center" style="display:grid;gap:14px;justify-items:center">
+      <span class="stamp">Цілком таємно</span>
+      <div class="brand big">ШПИ<b>Г</b>УН</div>
+      <p class="muted" style="max-width:34ch">Серед вас шпигун. Він знає лише тему, а ви — ще й місце. Вичисліть його, поки він не здогадався.</p>
+    </div>
+    ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
+    <input type="text" id="nameIn" maxlength="16" placeholder="Твоє ім'я" value="${esc(saved)}" autocomplete="off">
+    <button class="btn primary wide" id="createBtn">Створити кімнату</button>
+    <div class="divider">або</div>
+    <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
+      <input type="text" class="code-in" id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off" autocapitalize="characters">
+      <button class="btn" id="joinBtn">Увійти</button>
+    </div>
+    ${RULES}
+    <a class="linkbtn center" href="/screen">Є ноутбук чи ТВ? Відкрий великий екран →</a>
+  </div>`;
+  const name = () => { const n = $('#nameIn').value.trim(); if (!n) { $('#nameIn').focus(); toast("Спершу введи ім'я"); } else store.set('spy_name', n); return n; };
+  $('#createBtn').onclick = async () => {
+    const n = name(); if (!n) return;
+    $('#createBtn').disabled = true;
+    const r = await postApi({ action: 'create', name: n, used: store.get('spy_used') || [] });
+    if (r.error || !r.token) { $('#createBtn').disabled = false; return toast(r.error || 'Не вдалося створити кімнату'); }
+    SES = { room: r.room, token: r.token, id: r.id }; store.set('spy_session', SES); enter();
+  };
+  const join = async () => {
+    const code = $('#codeIn').value.toUpperCase().replace(/[^A-Z]/g, '');
+    if (code.length !== 4) { $('#codeIn').focus(); return toast('Код кімнати — 4 літери'); }
+    const n = name(); if (!n) return;
+    doJoin(code, n);
+  };
+  $('#joinBtn').onclick = join;
+  $('#codeIn').oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-ZА-ЯІЇЄҐ]/gi, ''); };
+  $('#codeIn').onkeydown = e => { if (e.key === 'Enter') join(); };
+}
+async function doJoin(code, n) {
+  const r = await postApi({ action: 'join', room: code, name: n });
+  if (r.error) return r.noRoom ? home(r.error) : joinScreen(code, r.error);
+  SES = { room: code, token: r.token, id: r.id }; store.set('spy_session', SES); enter();
+}
+function joinScreen(code, msg) {
+  chrome(false); lastKey = 'join';
+  const saved = store.get('spy_name') || '';
+  $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:18px;padding-top:4vh">
+    <div class="center" style="display:grid;gap:12px;justify-items:center">
+      <div class="brand big">ШПИ<b>Г</b>УН</div>
+      <span class="label">Тебе запросили в кімнату</span>
+      <div class="code">${esc(code)}</div>
+    </div>
+    ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
+    <input type="text" id="nameIn" maxlength="16" placeholder="Твоє ім'я" value="${esc(saved)}" autocomplete="off">
+    <button class="btn primary wide" id="joinBtn">Увійти</button>
+    <button class="linkbtn" id="otherBtn">Інша кімната</button>
+  </div>`;
+  const go = () => { const n = $('#nameIn').value.trim(); if (!n) return $('#nameIn').focus(); store.set('spy_name', n); doJoin(code, n); };
+  $('#joinBtn').onclick = go;
+  $('#nameIn').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('#otherBtn').onclick = () => { history.replaceState(null, '', '/'); home(); };
+  if (!saved) setTimeout(() => $('#nameIn').focus(), 300);
+}
+
+// ---------- стан ----------
+function onState(v) {
+  st = v; Timer.set(v);
+  if (v.amHost && v.used) store.set('spy_used', v.used);
+  if (!v.me) {
+    if (v.phase === 'lobby') { if (live) live.stop(); live = null; store.set('spy_session', null); const c = SES.room; SES = null; return joinScreen(c, 'Тебе немає в кімнаті. Увійди ще раз.'); }
+    chrome(true); $('#hostbar').hidden = true;
+    if (lastKey !== 'spectate') { lastKey = 'spectate'; $('#main').innerHTML = `<div class="waiting screen-in" style="margin-top:10vh">Гра вже йде без тебе.<br>Зайдеш у наступну партію.</div>`; }
+    return;
+  }
+  render();
+}
+
+// ---------- досьє ----------
+function dossier() {
+  const m = me();
   const body = m.isSpy
-    ? `<div class="lbl">Роль</div><div class="val spy">ТИ — ШПИГУН</div><div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div><p>Локацію ти не знаєш. Вдавай, що знаєш, і вгадай її.</p>`
-    : `<div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div><div class="lbl">Локація</div><div class="val">${esc(m.location)}</div><p>Серед вас є шпигун, який знає лише тему.</p>`;
-  return `<div class="dossier ${open ? 'open' : ''}" id="dos">${body}
-    <div class="cover"><div><span class="st">ЦІЛКОМ ТАЄМНО</span><br>Натисни й тримай, щоб прочитати</div></div></div>`;
+    ? `<div class="lbl">Роль</div><div class="val spyline">ТИ — ШПИГУН</div><div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div>
+       ${m.partners.length ? `<div class="lbl">Твій напарник</div><div class="val spyline">${m.partners.map(esc).join(', ')}</div>` : ''}
+       <p style="font-weight:700">Локацію ${m.partners.length ? 'ви не знаєте' : 'ти не знаєш'}. Вдавай, що знаєш, і вгадай її.</p>`
+    : `<div class="lbl">Тема</div><div class="val">${esc(st.theme)}</div><div class="lbl">Локація</div><div class="val">${esc(m.location)}</div>
+       <p style="font-weight:700">${st.spies > 1 ? 'Серед вас ДВА шпигуни. Вони знають лише тему й знають одне одного.' : 'Серед вас шпигун. Він знає лише тему.'}</p>`;
+  return `<div class="paper dossier" style="--rot:-1deg">${body}<span class="fingerprint">${m.isSpy ? '🕶️' : '🔎'}</span>
+    <div class="cover"><div><span class="stamp">Цілком таємно</span><br>Натисни й тримай,<br>щоб прочитати</div></div></div>`;
 }
 function holdToReveal(el) {
   if (!el) return;
   const on = e => { e.preventDefault(); el.classList.add('open'); };
-  const offF = () => el.classList.remove('open');
-  el.addEventListener('pointerdown', on); el.addEventListener('pointerup', offF);
-  el.addEventListener('pointerleave', offF); el.addEventListener('pointercancel', offF);
+  const off = () => el.classList.remove('open');
+  el.addEventListener('pointerdown', on); el.addEventListener('pointerup', off);
+  el.addEventListener('pointerleave', off); el.addEventListener('pointercancel', off);
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
-$('#rolebtn').onclick = () => {
+$('#roleBtn').onclick = () => {
   const o = $('#overlay');
-  o.innerHTML = dossier(false) + '';
+  o.innerHTML = dossier() + '';
   o.hidden = false;
   holdToReveal(o.querySelector('.dossier'));
   o.onclick = e => { if (e.target === o) o.hidden = true; };
@@ -190,8 +194,7 @@ function setupCanvas() {
   const cv = $('#cv'); if (!cv) return null;
   const W = 480; cv.width = W; cv.height = W;
   const g = cv.getContext('2d');
-  g.fillStyle = '#fff'; g.fillRect(0, 0, W, W);
-  g.lineCap = 'round'; g.lineJoin = 'round';
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, W); g.lineCap = 'round'; g.lineJoin = 'round';
   let color = '#1d1b18', size = 6, down = false, last = null;
   const hist = [];
   const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * W / r.width, (e.clientY - r.top) * W / r.height]; };
@@ -209,15 +212,11 @@ function setupCanvas() {
     last = p;
   };
   cv.onpointerup = cv.onpointercancel = () => { down = false; };
-  document.querySelectorAll('.sw').forEach(b => b.onclick = () => {
-    color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b));
-  });
-  document.querySelectorAll('.sz').forEach(b => b.onclick = () => {
-    size = +b.dataset.s; document.querySelectorAll('.sz').forEach(x => x.classList.toggle('on', x === b));
-  });
+  document.querySelectorAll('.sw').forEach(b => b.onclick = () => { color = b.dataset.c; document.querySelectorAll('.sw').forEach(x => x.classList.toggle('on', x === b)); });
+  document.querySelectorAll('.sz[data-s]').forEach(b => b.onclick = () => { size = +b.dataset.s; document.querySelectorAll('.sz[data-s]').forEach(x => x.classList.toggle('on', x === b)); });
   $('#undo').onclick = () => { const h = hist.pop(); if (h) g.putImageData(h, 0, 0); };
   $('#clear').onclick = () => { hist.push(g.getImageData(0, 0, W, W)); g.fillStyle = '#fff'; g.fillRect(0, 0, W, W); };
-  return { data: () => cv.toDataURL('image/jpeg', .75) };
+  return { data: () => cv.toDataURL('image/jpeg', .7) };
 }
 async function sendDrawing() {
   if (drawSent || !canvasApi) return;
@@ -227,141 +226,231 @@ async function sendDrawing() {
 
 // ---------- екрани ----------
 const waiting = html => `<div class="waiting">${html}</div>`;
-function screen() {
-  const s = st, m = s.me, cur = s.order ? s.order[s.idx] : null;
-  const out = m.alive ? '' : `<div class="banner">Тебе вигнали. Спостерігай і не підказуй 🤐</div>`;
+const wait = txt => waiting(`<span>${txt}</span><div id="dots"></div>`);
+const outBanner = () => me().alive ? '' : `<div class="banner info">Тебе вигнали. Спостерігай і не підказуй 🤐</div>`;
+const notice = () => st.notice ? `<div class="banner">${esc(st.notice)}</div>` : '';
+
+function screenHtml() {
+  const s = st, m = me(), cur = s.order ? s.order[s.idx] : null;
   switch (s.phase) {
-    case 'lobby':
-      return `<h1>Ти в грі</h1><p class="muted">Чекаємо, поки на ноутбуці натиснуть «Почати гру».</p>
-        ${waiting(`Гравців: <b>${s.players.filter(p => p.online).length}</b>`)}
-        <button class="wide" onclick="api('leave').then(()=>{ls.set('spy_id',null);myId=null;connect()})">Вийти / змінити ім'я</button>`;
+    case 'lobby': {
+      const n = s.players.length, host = P(s.hostId);
+      return `<div class="roomcard">
+          <span class="label">Кімната</span>
+          <div class="code">${esc(s.code)}</div>
+          <div class="qr">${qrSvg(shareLink())}</div>
+          <p class="muted" style="font-size:14px;max-width:32ch">Друзі сканують QR або відкривають посилання — з будь-якої мережі.</p>
+          <div class="row" style="width:100%"><button class="btn small" id="shareBtn">📤 Поділитися</button><button class="btn small" id="copyBtn">🔗 Скопіювати</button></div>
+        </div>
+        <div style="display:grid;gap:10px">
+          <span class="label">Гравці · ${n} з ${s.maxPlayers}${n >= 7 ? ' · <span style="color:var(--red)">2 шпигуни</span>' : ''}</span>
+          <div class="plist">${s.players.map(p => `
+            <div class="prow ${p.online ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}${p.id === m.id ? ' <span class="muted">(ти)</span>' : ''}</span>
+              ${p.id === s.hostId ? '<span class="tag">👑 ведучий</span>' : ''}
+              ${s.amHost && p.id !== m.id ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати">×</button>` : ''}</div>`).join('')}</div>
+        </div>
+        ${s.amHost ? (n < 3 ? `<p class="muted center">Потрібно ще ${3 - n} ${3 - n === 1 ? 'гравець' : 'гравці'}, щоб почати.</p>` : '')
+                   : `<div class="waiting">Чекаємо, поки <b>${esc(host.name)}</b> почне гру</div>`}
+        ${RULES}
+        <p class="muted center" style="font-size:14px">Є ноутбук чи ТВ? Відкрий на ньому <b>${esc(location.host)}/screen</b> і введи код <b>${esc(s.code)}</b> — там буде видно все разом.</p>
+        <button class="linkbtn" id="leaveBtn">Вийти з кімнати</button>`;
+    }
     case 'roles':
-      return `<h1>Твоя роль</h1>${dossier(false)}
-        ${m.mine ? waiting('Чекаємо інших…') : `<button class="primary wide" onclick="api('ready')">Я запам'ятав</button>`}`;
+      return `${R.phaseTag(s)}<h1>Твоє досьє</h1><p class="muted">Натисни й тримай, щоб прочитати. Не показуй іншим.</p>
+        ${dossier()}
+        ${m.mine ? wait('Чекаємо, поки всі прочитають…') : `<button class="btn primary wide" data-act="ready">Я запам'ятав</button><div id="dots"></div>`}`;
     case 'names':
-      if (m.mine) return waiting(`Твій персонаж: <b>${esc(m.mine)}</b><br>Чекаємо інших…`);
-      return `<h1>Ім'я персонажа</h1>
-        <p class="muted">${m.isSpy ? `Ти шпигун. Вигадай ім'я, яке пасує до теми «${esc(s.theme)}», щоб не спалитися.` : `Натякни, що знаєш локацію, але так, щоб шпигун не здогадався.`}</p>
+      if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твій персонаж</div><div class="val">${esc(m.mine)}</div></div>${wait('Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Хто ти сьогодні?</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Вигадай персонажа, який пасує до теми «${esc(s.theme)}», щоб не спалитися.` : 'Натякни, що знаєш локацію, але так, щоб шпигун не здогадався.'}</p>
         <input type="text" id="txt" maxlength="40" placeholder="Напр.: Охоронець Степан" autocomplete="off">
-        <button class="primary wide" id="send">Готово</button>`;
-    case 'namesReveal': case 'drawReveal': case 'wordsReveal': case 'itemsDone':
-      return out + waiting('Дивіться на екран ноутбука 👀');
-    case 'questions':
-      if (cur === m.id && s.stage === 'pick') return `<h1>Твоє питання</h1><p class="muted">Кого питаєш?</p>
-        <div class="list">${s.players.filter(p => p.alive && p.id !== m.id).map(p => `<button class="opt" onclick="api('target',{target:'${p.id}'})">${esc(p.name)} <span class="muted">${esc(p.char)}</span></button>`).join('')}</div>`;
-      if (cur === m.id) return `<h1>Питай: ${esc(P(s.target).name)}</h1><p class="muted">Постав питання вголос. Коли відповіли — тисни.</p>
-        <button class="primary wide" onclick="api('asked')">Відповіли ✓</button>`;
-      if (s.target === m.id && s.stage === 'ask') return `<h1>${esc(P(cur).name)} питає тебе</h1>` + waiting('Відповідай уголос');
-      return out + waiting(s.stage === 'pick' ? `<b>${esc(P(cur).name)}</b> обирає, кого спитати` : `<b>${esc(P(cur).name)}</b> питає <b>${esc(P(s.target).name)}</b>`);
+        <button class="btn primary wide" id="send">Готово</button><div id="dots"></div>`;
+    case 'namesReveal':
+      return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
+    case 'questions': {
+      const head = R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`);
+      if (cur === m.id && s.stage === 'pick') return `${head}<h1>Твоя черга питати</h1><p class="muted">Кого допитуємо?</p>
+        <div class="list">${R.alive(s).filter(p => p.id !== m.id).map(p => `<button class="btn opt" data-target="${p.id}">${av(p)}<span>${esc(p.name)}<span class="sub">${esc(p.char)}</span></span></button>`).join('')}</div>`;
+      if (cur === m.id) return `${head}${R.duel(s, m.id)}<h1 class="center">Питай уголос</h1>
+        <p class="muted center">У вас до 2 хвилин. Коли відповіли — тисни кнопку.</p><button class="btn ok wide" data-act="asked">Відповіли ✓</button>${R.order(s)}`;
+      if (s.target === m.id && s.stage === 'ask') return `${head}${R.duel(s, m.id)}<h1 class="center">Тебе допитують!</h1><p class="muted center">Відповідай уголос. Обережно зі словами 😏</p>${R.order(s)}`;
+      return `${head}${outBanner()}${R.duel(s, m.id)}<p class="muted center">${s.stage === 'pick' ? `<b>${esc(P(cur).name)}</b> обирає, кого спитати` : 'Слухай уважно: хто відповідає надто розмито?'}</p>${R.order(s)}`;
+    }
     case 'drawing':
-      if (!m.alive) return out + waiting('Інші малюють…');
-      if (m.mine || drawSent) return waiting('Малюнок надіслано. Чекаємо інших…');
-      return `<h1>Намалюй локацію</h1>
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші малюють…')}`;
+      if (m.mine || drawSent) return `${R.phaseTag(s)}${wait('Малюнок здано. Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Намалюй локацію</h1>
         <p class="muted">${m.isSpy ? `Ти шпигун — малюй щось, що пасує до теми «${esc(s.theme)}».` : 'Так, щоб свої впізнали, а шпигун — ні.'}</p>
         <div class="canvaswrap"><canvas id="cv"></canvas></div>
-        <div class="tools">
-          ${['#1d1b18', '#d2442f', '#2f6fd2', '#2f9d55', '#e8b62c', '#8a5a2b', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}
-        </div>
-        <div class="tools">
-          <button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button>
-          <span class="grow"></span><button class="sz" id="undo">↶</button><button class="sz" id="clear">Стерти</button>
-        </div>
-        <button class="primary wide" id="send">Надіслати малюнок</button>`;
+        <div class="tools">${['#1d1b18', '#e3412a', '#2f6fd2', '#2f9d55', '#e8b62c', '#8a5a2b', '#ffffff'].map((c, i) => `<button class="sw ${i ? '' : 'on'}" data-c="${c}" style="background:${c}" aria-label="Колір"></button>`).join('')}</div>
+        <div class="tools"><button class="sz" data-s="3">Тонко</button><button class="sz on" data-s="6">Середньо</button><button class="sz" data-s="16">Товсто</button>
+          <span class="grow"></span><button class="sz" id="undo">↶</button><button class="sz" id="clear">Стерти</button></div>
+        <button class="btn primary wide" id="send">Здати малюнок</button>`;
+    case 'drawReveal':
+      return `${R.phaseTag(s)}<h1>Галерея доказів</h1><p class="muted">Чий малюнок підозрілий? Торкнись, щоб збільшити.</p>${R.gallery(s)}`;
     case 'items': {
-      const mine = s.items.find(it => it.by === cur);
-      if (cur === m.id && s.stage === 'pick') return `<h1>Обери предмет</h1><p class="muted">Потім поясниш уголос, як він пов'язаний з локацією.</p>
-        <div class="items">${s.items.map((it, i) => `<button class="item ${it.by ? 'taken' : ''}" ${it.by ? 'disabled' : ''} onclick="api('pick',{index:${i}})"><span class="e">${it.e}</span>${esc(it.n)}</button>`).join('')}</div>`;
-      if (cur === m.id) return `<div class="bigitem">${mine ? mine.e : ''}</div><h1 class="center">${mine ? esc(mine.n) : ''}</h1>
-        <p class="muted center">Поясни вголос, як це пов'язано з локацією.</p><button class="primary wide" onclick="api('explained')">Пояснив ✓</button>`;
-      return out + waiting(s.stage === 'pick' ? `<b>${esc(P(cur).name)}</b> обирає предмет` : `<b>${esc(P(cur).name)}</b> пояснює: ${mine ? mine.e + ' ' + esc(mine.n) : ''}`);
+      const it = s.items.find(x => x.by === cur && s.stage === 'explain');
+      const curIdx = it ? s.items.indexOf(it) : -1;
+      const head = R.phaseTag(s, `Предмети · ${s.idx + 1} з ${s.order.length}`);
+      if (cur === m.id && s.stage === 'pick') return `${head}<h1>Обери свій предмет</h1>
+        <p class="muted">Потім у тебе буде до 2 хвилин, щоб розповісти, як він пов'язаний з локацією.</p>${R.items(s, { pickable: true })}`;
+      if (cur === m.id) return `${head}<div class="hero-item"><span class="e">${it.e}</span><span class="n">${esc(it.n)}</span></div>
+        <h1 class="center">Розповідай уголос</h1><p class="muted center">Як цей предмет пов'язаний з локацією? До 2 хвилин.</p>
+        <button class="btn ok wide" data-act="explained">Розповів ✓</button>`;
+      if (it) return `${head}${outBanner()}<div class="hero-item"><span class="e">${it.e}</span><span class="n">${esc(it.n)}</span>
+        <span class="muted" style="display:flex;align-items:center;gap:8px">${av(P(cur))}<b style="color:var(--fg)">${esc(P(cur).name)}</b> розповідає</span></div>${R.items(s, { current: curIdx })}`;
+      return `${head}${outBanner()}<p class="muted center"><b style="color:var(--fg)">${esc(P(cur).name)}</b> обирає предмет…</p>${R.items(s)}`;
     }
+    case 'itemsDone':
+      return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
     case 'vote': {
-      if (!m.alive) return out + waiting('Інші голосують…');
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
-      return `${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1>Хто шпигун?</h1>
-        <div class="list">${cands.map(p => `<button class="opt ${m.vote === p.id ? 'sel' : ''}" onclick="api('vote',{target:'${p.id}'})">${esc(p.name)} <span>${esc(p.char)}</span></button>`).join('')}</div>
-        ${m.vote ? '<p class="muted center">Голос прийнято. Поки інші думають, можна змінити.</p>' : ''}`;
+      return `${R.phaseTag(s, s.voteNo === 2 ? 'Голосування №2' : 'Голосування')}${notice()}<h1>Хто шпигун?</h1>
+        <div class="list">${cands.map(p => `<button class="btn opt ${m.vote === p.id ? 'sel' : ''}" data-vote="${p.id}">${av(p)}<span>${esc(p.name)}<span class="sub">${esc(p.char)}</span></span></button>`).join('')}</div>
+        <p class="muted center">${m.vote ? 'Голос прийнято. Поки інші думають, можна змінити.' : 'Голосування таємне.'}</p><div id="dots"></div>`;
     }
     case 'voteResult': {
-      const r = s.res || {};
-      if (r.out === m.id) return `<h1>Тебе вигнали</h1>` + waiting(m.isSpy ? 'Зараз буде шанс назвати локацію!' : 'Дивіться на екран');
-      return waiting(r.out ? `Вигнали <b>${esc(P(r.out).name)}</b>` : 'Нікого не вигнали');
+      const r = s.res || {}, out = r.out ? P(r.out) : null;
+      return `${R.phaseTag(s)}<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>${r.out === m.id ? 'Тебе вигнали' : `Вигнали: ${esc(out.name)}`}</h1>` : '<h1>Нікого не вигнали</h1>'}
+        <p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>${R.bars(s)}`;
     }
     case 'guess':
-      if (m.isSpy) return `<h1>Твій шанс</h1>
-        <p class="muted">Назви локацію. Вгадаєш — перемога. Помилишся — програш. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.</p>
+      if (m.canGuess) return `${R.phaseTag(s)}<span class="stamp">Остання спроба</span><h1>Назви локацію</h1>
+        <p class="muted">Вгадаєш — перемога${m.partners.length ? ' для обох' : ''}. Помилишся — програш. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.</p>
         <input type="text" id="txt" maxlength="60" placeholder="Локація…" autocomplete="off">
-        <button class="primary wide" id="send">Вгадати</button>
-        <button class="wide" onclick="api('skip')">Не ризикувати</button>`;
-      return out + waiting('Шпигун вирішує, чи називати локацію…');
+        <button class="btn primary wide" id="send">Ризикнути</button><button class="btn ghost wide" data-act="skip">Не ризикувати</button>`;
+      if (m.isSpy) return `${R.phaseTag(s)}${waiting('Чекаємо, що вирішить напарник…')}`;
+      return `${R.phaseTag(s)}${outBanner()}${waiting(`<span style="font-size:42px">🕶️</span><b>${s.spies > 1 ? 'Шпигуни вирішують' : 'Шпигун вирішує'}, чи називати локацію…</b>`)}`;
     case 'verdict':
-      if (m.isSpy) return waiting(`Ти сказав «<b>${esc(s.guess)}</b>».<br>Мирні вирішують…`);
-      if (m.verdict !== null) return waiting(`Твоє рішення: <b>${m.verdict ? 'зарахувати' : 'не зараховувати'}</b>. Чекаємо інших…`);
-      return `<h1>Шпигун каже:</h1><div class="dossier open"><div class="lbl">Здогадка</div><div class="val">«${esc(s.guess)}»</div>
+      if (m.isSpy) return `${R.phaseTag(s)}${waiting(`${s.guessBy === m.id ? 'Ти сказав' : 'Напарник сказав'} «<b>${esc(s.guess)}</b>».<br>Мирні вирішують…`)}`;
+      if (m.verdict !== null) return `${R.phaseTag(s)}${wait(`Твоє рішення: <b>${m.verdict ? 'зарахувати' : 'не зараховувати'}</b>. Чекаємо інших…`)}`;
+      return `${R.phaseTag(s)}<h1>Шпигун каже:</h1>
+        <div class="paper" style="--rot:-1deg"><div class="lbl">Здогадка</div><div class="val">«${esc(s.guess)}»</div>
         <div class="lbl">Правильна локація</div><div class="val">${esc(m.location)}</div></div>
         <p class="muted">Чесно: це та сама локація?</p>
-        <div class="list"><button class="primary" onclick="api('verdict',{yes:true})">Так, вгадав</button><button onclick="api('verdict',{yes:false})">Ні, не вгадав</button></div>`;
+        <div class="row"><button class="btn primary" data-verdict="1">Так, вгадав</button><button class="btn" data-verdict="0">Ні</button></div>`;
     case 'words':
-      if (!m.alive) return out + waiting('Інші пишуть слова…');
-      if (m.mine) return waiting(`Твоє слово: <b>${esc(m.mine)}</b>. Чекаємо інших…`);
-      return `${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1>Одне слово</h1>
-        <p class="muted">${m.isSpy ? `Ти шпигун. Слово має пасувати до теми «${esc(s.theme)}».` : 'Одне слово про локацію.'}</p>
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть слова…')}`;
+      if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твоє слово</div><div class="val">${esc(m.mine)}</div></div>${wait('Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}${notice()}<h1>Одне слово</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Слово має пасувати до теми «${esc(s.theme)}».` : 'Одне слово про локацію. Не надто очевидне!'}</p>
         <input type="text" id="txt" maxlength="24" placeholder="Слово" autocomplete="off">
-        <button class="primary wide" id="send">Готово</button>`;
+        <button class="btn primary wide" id="send">Готово</button><div id="dots"></div>`;
+    case 'wordsReveal':
+      return `${R.phaseTag(s)}<h1>Слова на стіл</h1>${R.words(s)}`;
     case 'end': {
-      const e = s.end, spyWon = e.winner === 'spy';
-      const iWon = m.isSpy ? spyWon : !spyWon;
-      return `<h1 class="center">${iWon ? '🎉 Перемога!' : 'Поразка'}</h1>
-        <div class="dossier open"><div class="lbl">Локація</div><div class="val">${esc(e.location)}</div>
-        <div class="lbl">Шпигун</div><div class="val">${esc(P(e.spyId).name)}</div>
-        ${e.guess ? `<div class="lbl">Здогадка шпигуна</div><div class="val">«${esc(e.guess)}»</div>` : ''}</div>
-        ${waiting('Нова гра почнеться з ноутбука')}`;
+      const e = s.end, spyWon = e.winner === 'spy', iWon = m.isSpy ? spyWon : !spyWon;
+      return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
+        <h1>${iWon ? '🎉 Ти переміг!' : 'Цього разу — поразка'}</h1><p class="muted">${REASON[e.reason] || ''}</p></div>
+        ${R.endReveal(s)}
+        ${s.amHost ? '' : waiting(`Нову партію почне <b>${esc(P(s.hostId).name)}</b>`)}`;
     }
   }
   return '';
 }
 
-function bindInputs() {
-  const btn = $('#send'), txt = $('#txt');
-  if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); if (btn) btn.onclick = sendDrawing; return; }
-  if (!btn || !txt) return;
-  const action = { names: 'name', words: 'word', guess: 'guess' }[st.phase];
-  const go = () => { const t = txt.value.trim(); if (t) { btn.disabled = true; api(action, { text: t }); } };
-  btn.onclick = go;
-  txt.onkeydown = e => { if (e.key === 'Enter') go(); };
+// ---------- кнопки ведучого ----------
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'voteResult', 'wordsReveal'];
+function hostbarHtml() {
+  const s = st;
+  if (!s.amHost) return '';
+  const tag = '<span class="tag">👑<br>ведучий</span>';
+  if (s.phase === 'lobby') {
+    const n = s.players.filter(p => p.online).length;
+    return `${tag}<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`;
+  }
+  if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
+  if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
+  const label = s.phase === 'questions' || s.phase === 'items' ? 'Пропустити хід' : 'Не чекати';
+  return `${tag}<button class="btn ghost small" data-host="next">${label}</button>`;
 }
 
+// ---------- малювання екрана ----------
 function render() {
-  if (!st) return;
-  if (!st.me) {
-    if (st.phase === 'lobby' || !myId) { if (lastKey !== 'join') joinScreen(myId && st.phase === 'lobby' ? '' : (st.phase !== 'lobby' ? 'Гра вже йде. Можна зайти, коли вона закінчиться.' : '')); }
-    else { lastKey = 'ingame'; $('#main').innerHTML = waiting('Гра вже йде. Можна зайти, коли вона закінчиться.'); }
-    return;
-  }
-  const m = st.me;
-  $('#me').textContent = m.name + (m.alive ? '' : ' (вибув)');
-  $('#rolebtn').hidden = st.phase === 'lobby' || st.phase === 'end' || (st.phase === 'roles' && !m.mine);
-  if (st.phase !== 'drawing') { drawSent = false; canvasApi = null; }
-  if (st.phase === 'lobby' || st.phase === 'end') $('#overlay').hidden = true;
-  const key = JSON.stringify([st.phase, st.stage, st.idx, st.target, st.voteNo, st.notice, st.cands, m.alive, m.vote, m.verdict, !!m.mine,
-    st.phase === 'items' ? st.items.map(i => i.by) : 0, st.phase === 'lobby' ? st.players.filter(p => p.online).length : 0, st.res]);
-  if (key !== lastKey) {
-    lastKey = key;
-    $('#main').innerHTML = screen();
-    if (st.phase === 'roles') holdToReveal($('#dos'));
-    bindInputs();
-  }
-  tick();
-}
-function tick() {
-  const l = left(), t = $('#timer');
-  t.textContent = l == null ? '' : `${Math.floor(l / 60)}:${String(l % 60).padStart(2, '0')}`;
-  t.classList.toggle('low', l != null && l <= 10);
-  if (st && st.phase === 'drawing' && st.me && st.me.alive && !st.me.mine && l != null && l <= 2) sendDrawing();
-}
-setInterval(tick, 250);
+  const s = st, m = me();
+  chrome(true);
+  $('#codeChip').textContent = s.code;
+  $('#top').classList.toggle('ingame', s.phase !== 'lobby');
+  const th = $('#themeChip'); th.hidden = !s.theme; th.textContent = s.theme || '';
+  $('#roleBtn').hidden = ['lobby', 'end'].includes(s.phase) || (s.phase === 'roles' && !m.mine);
+  if (s.phase !== 'drawing') { drawSent = false; canvasApi = null; }
+  if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
-if (!ROOM) joinScreen(); else if (myId) connect(); else { joinScreen(); connect(); }
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine,
+    s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => i.by) : 0, s.res, s.end && s.end.reason]);
+  if (key !== lastKey) {
+    const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
+    lastKey = key;
+    const typed = keepFocus ? $('#txt').value : null;
+    $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:18px">${screenHtml()}</div>`;
+    bind();
+    if (typed != null && $('#txt')) { $('#txt').value = typed; $('#txt').focus(); }
+    if (s.phase === 'end' && confettiFor !== s.game) {
+      confettiFor = s.game;
+      const spyWon = s.end.winner === 'spy';
+      if (m.isSpy ? spyWon : !spyWon) confetti();
+    }
+  }
+  // живі дрібниці без перемальовування
+  const dots = $('#dots');
+  if (dots) {
+    const ids = s.phase === 'roles' || s.phase === 'names' ? s.players.map(p => p.id) : R.alive(s).map(p => p.id);
+    dots.innerHTML = R.doneDots(s, ids);
+  }
+  const hb = hostbarHtml();
+  $('#hostbar').hidden = !hb;
+  const hk = hb + [s.game, s.phase, s.stage, s.idx].join();   // новий хід — кнопка знову активна
+  if (hb && $('#hostbar .inner').dataset.k !== hk) {
+    $('#hostbar .inner').dataset.k = hk; $('#hostbar .inner').innerHTML = hb;
+    $('#hostbar').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.host); });
+  }
+  // вібрація, коли твій хід
+  const cur = s.order ? s.order[s.idx] : null;
+  const turn = (s.phase === 'questions' && (cur === m.id || (s.stage === 'ask' && s.target === m.id))) || (s.phase === 'items' && cur === m.id) || (s.phase === 'guess' && m.isSpy);
+  const tk = turn ? [s.game, s.phase, s.idx, s.stage].join() : '';
+  if (tk && tk !== buzzed) { buzzed = tk; buzz([80, 60, 80]); }
+  Timer.tick();
+}
+
+function bind() {
+  const main = $('#main');
+  main.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.act); });
+  main.querySelectorAll('[data-target]').forEach(b => b.onclick = () => api('target', { target: b.dataset.target }));
+  main.querySelectorAll('[data-vote]').forEach(b => b.onclick = () => api('vote', { target: b.dataset.vote }));
+  main.querySelectorAll('[data-verdict]').forEach(b => b.onclick = () => api('verdict', { yes: b.dataset.verdict === '1' }));
+  main.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { buzz(30); api('pick', { index: +b.dataset.pick }); });
+  main.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => api('kick', { target: b.dataset.kick }));
+  R.bindZoom(main);
+  if (st.phase === 'roles') holdToReveal(main.querySelector('.dossier'));
+  if ($('#leaveBtn')) $('#leaveBtn').onclick = leave;
+  if ($('#copyBtn')) $('#copyBtn').onclick = () => {
+    const link = shareLink();
+    (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Посилання скопійовано')).catch(() => prompt('Скопіюй посилання:', link));
+  };
+  if ($('#shareBtn')) $('#shareBtn').onclick = () => {
+    const link = shareLink();
+    if (navigator.share) navigator.share({ title: 'Шпигун', text: `Заходь у гру «Шпигун», код кімнати ${st.code}`, url: link }).catch(() => {});
+    else $('#copyBtn').click();
+  };
+  if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); $('#send').onclick = sendDrawing; return; }
+  const btn = $('#send'), txt = $('#txt');
+  if (btn && txt) {
+    const action = { names: 'name', words: 'word', guess: 'guess' }[st.phase];
+    const go = () => { const t = txt.value.trim(); if (t) { btn.disabled = true; api(action, { text: t }); } else txt.focus(); };
+    btn.onclick = go;
+    txt.onkeydown = e => { if (e.key === 'Enter') go(); };
+  }
+}
+
+// малюнок здається сам за 2 секунди до кінця
+setInterval(() => {
+  if (st && st.phase === 'drawing' && me() && me().alive && !me().mine && canvasApi) {
+    const l = Timer.left(); if (l != null && l <= 2000) sendDrawing();
+  }
+}, 300);
+
+boot();
 </script>
 </body>
 </html>

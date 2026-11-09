@@ -1,8 +1,8 @@
 'use strict';
 // ===== Шпигун — сервер гри =====
 // Запуск: node server.js   (Node.js 18+, без залежностей)
-// Працює і локально (http://localhost:3000), і на хостингу (Render тощо).
-// Ведучий (ноутбук) створює кімнату з кодом, гравці заходять з телефонів за QR або кодом.
+// Кімнату створює будь-хто з телефона (і стає ведучим) або великий екран (/screen).
+// Гравці заходять за посиланням ?r=КОД або вводять код.
 
 const http = require('http');
 const fs = require('fs');
@@ -14,15 +14,23 @@ const { THEMES, ITEMS } = require('./data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
-const MAX_PLAYERS = 8;
+const MAX_PLAYERS = 12;
+const TWO_SPIES_FROM = 7;   // з такої кількості гравців — 2 шпигуни
 const MAX_ROOMS = 300;
 
 // тривалість етапів, секунди
-const SEC = { pick: 25, question: 50, explain: 40, names: 75, drawing: 70, vote: 45, guess: 25, verdict: 30, words: 40 };
+const SEC = {
+  roles: 45, names: 75,
+  pick: 25, question: 120,            // вибір, кого спитати / питання й відповідь
+  drawing: 70, itemPick: 25, explain: 120,
+  vote: 45, guess: 25, verdict: 30, words: 40,
+  // показ результатів (ведучий може натиснути «Далі» раніше)
+  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25,
+};
 
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const pickOne = a => a[Math.floor(Math.random() * a.length)];
-const rid = () => crypto.randomBytes(6).toString('hex');
+const rid = (n = 6) => crypto.randomBytes(n).toString('hex');
 
 const PAIRS = [];
 for (const [theme, locs] of Object.entries(THEMES)) for (const loc of locs) PAIRS.push({ theme, loc });
@@ -37,22 +45,24 @@ function newCode() {
 }
 
 function createRoom(usedInit) {
-  const room = { code: newCode(), hostKey: crypto.randomBytes(16).toString('hex'), conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now() };
+  const room = {
+    code: newCode(), hostKey: rid(16), hostId: null,
+    conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
+  };
 
-  let players = [];            // { id, name, alive, char }
+  let players = [];            // { id, token, name, alive, char }
   let S = { phase: 'lobby' };  // стан поточної партії
   let timer = null;
   const { online, polled } = room;
   const isOnline = id => (online.get(id) || 0) > 0 || Date.now() - (polled.get(id) || 0) < 8000;
-  const broadcast = () => { for (const c of room.conns) { try { c.res.write('data: ' + JSON.stringify(c.host ? hostView() : playerView(c.id)) + '\n\n'); } catch (e) {} } };
 
-  // зіграні локації (список приходить з браузера ноутбука і туди ж повертається)
+  // зіграні локації (список зберігає браузер ведучого)
   const used = new Set((Array.isArray(usedInit) ? usedInit : []).filter(x => typeof x === 'string').slice(0, 3000));
   let lastTheme = null;
   function nextPair() {
     const key = p => p.theme + '|' + p.loc;
     let pool = PAIRS.filter(p => !used.has(key(p)));
-    if (!pool.length) { used.clear(); pool = PAIRS; }   // усі зіграно — нове коло
+    if (!pool.length) { used.clear(); pool = PAIRS; }
     const fresh = pool.filter(p => p.theme !== lastTheme);   // тема не повторюється двічі поспіль
     const pair = pickOne(fresh.length ? fresh : pool);
     used.add(key(pair)); lastTheme = pair.theme;
@@ -60,6 +70,7 @@ function createRoom(usedInit) {
   }
 
   const byId = id => players.find(p => p.id === id);
+  const byToken = t => (t ? players.find(p => p.token === t) : null);
   const alive = () => players.filter(p => p.alive);
   const nm = id => (byId(id) || {}).name || '?';
 
@@ -73,19 +84,22 @@ function createRoom(usedInit) {
   // ---------- хід гри ----------
   function startGame() {
     players = players.filter(p => isOnline(p.id));
+    if (room.hostId && !byId(room.hostId)) room.hostId = players[0] ? players[0].id : null;
     if (players.length < 3) return 'Потрібно щонайменше 3 гравці';
     const pair = nextPair();
     players.forEach(p => { p.alive = true; p.char = ''; });
     clearTimer();
-    S = { phase: 'roles', theme: pair.theme, location: pair.loc, spyId: pickOne(players).id, sub: {}, voteNo: 1, notice: '', endsAt: 0 };
+    const spyIds = shuffle(players).slice(0, players.length >= TWO_SPIES_FROM ? 2 : 1).map(p => p.id);
+    S = { phase: 'roles', theme: pair.theme, location: pair.loc, spyIds, sub: {}, voteNo: 1, notice: '', endsAt: 0, game: rid(3) };
+    setTimer(SEC.roles, toNames);
     return null;
   }
 
   function toNames() { S.phase = 'names'; S.sub = {}; setTimer(SEC.names, revealNames); }
   function revealNames() {
-    clearTimer();
     players.forEach(p => { p.char = S.sub[p.id] || '(без імені)'; });
     S.sub = {}; S.phase = 'namesReveal';
+    setTimer(SEC.namesReveal, toQuestions);
   }
 
   function toQuestions() { S.phase = 'questions'; S.order = shuffle(alive().map(p => p.id)); S.idx = 0; startAsk(); }
@@ -101,7 +115,6 @@ function createRoom(usedInit) {
   function nextAsk() { S.idx++; if (S.idx >= S.order.length) toExtra(); else startAsk(); }
 
   function toExtra() {
-    clearTimer();
     S.extra = Math.random() < .5 ? 'drawing' : 'items';
     if (S.extra === 'drawing') { S.phase = 'drawing'; S.sub = {}; setTimer(SEC.drawing, revealDrawings); }
     else {
@@ -111,14 +124,14 @@ function createRoom(usedInit) {
       startPick();
     }
   }
-  function revealDrawings() { clearTimer(); S.drawings = { ...S.sub }; S.sub = {}; S.phase = 'drawReveal'; }
-  function startPick() { S.stage = 'pick'; setTimer(SEC.pick, itemsTimeout); }
+  function revealDrawings() { S.drawings = { ...S.sub }; S.sub = {}; S.phase = 'drawReveal'; setTimer(SEC.drawReveal, () => toVote()); }
+  function startPick() { S.stage = 'pick'; setTimer(SEC.itemPick, itemsTimeout); }
   function startExplain() { S.stage = 'explain'; setTimer(SEC.explain, itemsTimeout); }
   function itemsTimeout() {
     if (S.stage === 'pick') { pickOne(S.items.filter(i => !i.by)).by = S.order[S.idx]; startExplain(); }
     else nextItem();
   }
-  function nextItem() { S.idx++; if (S.idx >= S.order.length) { clearTimer(); S.phase = 'itemsDone'; } else startPick(); }
+  function nextItem() { S.idx++; if (S.idx >= S.order.length) { S.phase = 'itemsDone'; setTimer(SEC.itemsDone, () => toVote()); } else startPick(); }
 
   function toVote(cands) {
     if (!cands) { S.revote = false; S.notice = ''; }
@@ -142,39 +155,41 @@ function createRoom(usedInit) {
     if (out) byId(out).alive = false;
     S.res = { counts, out };
     S.phase = 'voteResult';
+    setTimer(SEC.voteResult, toGuess);
   }
 
-  function toGuess() { S.phase = 'guess'; S.guess = ''; setTimer(SEC.guess, afterGuess); }
+  const isSpy = id => !!S.spyIds && S.spyIds.includes(id);
+  // хто зі шпигунів може зараз назвати локацію: живі + щойно вигнаний
+  const guessers = () => S.spyIds.filter(id => { const x = byId(id); return x && (x.alive || (S.res && S.res.out === id)); });
+  function toGuess() { S.phase = 'guess'; S.guess = ''; S.guessBy = null; S.skips = {}; setTimer(SEC.guess, afterGuess); }
   function afterGuess() {
-    clearTimer();
     if (S.guess) { S.phase = 'verdict'; S.verdict = {}; setTimer(SEC.verdict, finishVerdict); }
     else resolveNoGuess();
   }
-  const judges = () => players.filter(p => p.id !== S.spyId);
+  const judges = () => players.filter(p => !isSpy(p.id));
   function finishVerdict() {
-    clearTimer();
     const v = Object.values(S.verdict);
     const yes = v.filter(Boolean).length;
     if (yes > v.length - yes) endGame('spy', 'guessed'); else endGame('town', 'wrong');
   }
   function resolveNoGuess() {
     const out = S.res && S.res.out;
-    if (out === S.spyId) return endGame('town', 'caught');
-    if (alive().length <= 2) return endGame('spy', 'fewLeft');
+    const spiesLeft = S.spyIds.filter(id => byId(id) && byId(id).alive).length;
+    if (!spiesLeft) return endGame('town', 'caught');
+    if (alive().length - spiesLeft <= spiesLeft) return endGame('spy', 'fewLeft');
     if (S.voteNo >= 2) return endGame('spy', 'survived');
     S.voteNo = 2;
     toWords();
-    S.notice = out ? `${nm(out)} — не шпигун` : 'Нікого не вигнали';
+    S.notice = !out ? 'Нікого не вигнали' : isSpy(out) ? `${nm(out)} — шпигун! Але серед вас є ще один` : `${nm(out)} — не шпигун`;
   }
 
   function toWords() { S.phase = 'words'; S.sub = {}; setTimer(SEC.words, revealWords); }
-  function revealWords() { clearTimer(); S.words = { ...S.sub }; S.sub = {}; S.phase = 'wordsReveal'; }
+  function revealWords() { S.words = { ...S.sub }; S.sub = {}; S.phase = 'wordsReveal'; setTimer(SEC.wordsReveal, () => toVote()); }
 
   function endGame(winner, reason) { clearTimer(); S.phase = 'end'; S.win = { winner, reason }; }
-
   function toLobby() { clearTimer(); S = { phase: 'lobby' }; players.forEach(p => { p.alive = true; p.char = ''; }); }
 
-  // кнопка «Далі» / «Не чекати» на ноутбуці
+  // «Далі» / «Не чекати» від ведучого
   function hostNext() {
     switch (S.phase) {
       case 'roles': return toNames();
@@ -195,23 +210,33 @@ function createRoom(usedInit) {
   }
 
   // ---------- дії ----------
+  function addPlayer(name) {
+    let n = name, k = 2;
+    while (players.some(x => x.name.toLowerCase() === n.toLowerCase())) n = `${name} ${k++}`;
+    const np = { id: rid(), token: rid(12), name: n, alive: true, char: '' };
+    players.push(np);
+    return np;
+  }
+
   function handle(b) {
-    const id = b.id, p = id ? byId(id) : null;
+    const p = byToken(b.token), id = p ? p.id : null;
+    const isHost = b.key === room.hostKey || (id && id === room.hostId);
     switch (b.action) {
       case 'join': {
         const name = String(b.name || '').trim().slice(0, 16);
-        if (p) { if (name && S.phase === 'lobby') p.name = name; return { id }; }
+        if (p) { if (name && S.phase === 'lobby') p.name = name; return { id: p.id, token: p.token }; }
         if (S.phase !== 'lobby') return { error: 'Гра вже йде. Дочекайтеся наступної партії.' };
         if (!name) return { error: "Введіть ім'я" };
-        if (players.length >= MAX_PLAYERS) return { error: `Уже ${MAX_PLAYERS} гравців` };
-        let n = name, k = 2;
-        while (players.some(x => x.name.toLowerCase() === n.toLowerCase())) n = `${name} ${k++}`;
-        const np = { id: rid(), name: n, alive: true, char: '' };
-        players.push(np);
-        return { id: np.id };
+        if (players.length >= MAX_PLAYERS) return { error: `У кімнаті вже ${MAX_PLAYERS} гравців` };
+        const np = addPlayer(name);
+        if (!room.hostId && b.asHost) room.hostId = np.id;
+        return { id: np.id, token: np.token };
       }
       case 'leave':
-        if (S.phase === 'lobby') players = players.filter(x => x.id !== id);
+        if (p && S.phase === 'lobby') {
+          players = players.filter(x => x.id !== id);
+          if (room.hostId === id) room.hostId = players[0] ? players[0].id : null;
+        }
         return {};
       case 'ready':
         if (S.phase === 'roles' && p) { S.sub[id] = true; if (players.every(x => S.sub[x.id])) toNames(); }
@@ -231,7 +256,7 @@ function createRoom(usedInit) {
         if (S.phase === 'questions' && S.stage === 'ask' && S.order[S.idx] === id) nextAsk();
         return {};
       case 'draw':
-        if (S.phase === 'drawing' && p && p.alive && typeof b.img === 'string' && b.img.startsWith('data:image/') && b.img.length < 1.5e6) {
+        if (S.phase === 'drawing' && p && p.alive && typeof b.img === 'string' && b.img.startsWith('data:image/') && b.img.length < 6e5) {
           S.sub[id] = b.img;
           if (alive().every(x => S.sub[x.id])) revealDrawings();
         }
@@ -255,14 +280,17 @@ function createRoom(usedInit) {
       }
       case 'guess': {
         const t = String(b.text || '').trim().slice(0, 60);
-        if (S.phase === 'guess' && id === S.spyId && t) { S.guess = t; afterGuess(); }
+        if (S.phase === 'guess' && guessers().includes(id) && !S.skips[id] && t) { S.guess = t; S.guessBy = id; afterGuess(); }
         return {};
       }
       case 'skip':
-        if (S.phase === 'guess' && id === S.spyId) { S.guess = ''; afterGuess(); }
+        if (S.phase === 'guess' && guessers().includes(id)) {
+          S.skips[id] = true;
+          if (guessers().every(g => S.skips[g])) { S.guess = ''; afterGuess(); }
+        }
         return {};
       case 'verdict':
-        if (S.phase === 'verdict' && p && id !== S.spyId) {
+        if (S.phase === 'verdict' && p && !isSpy(id)) {
           S.verdict[id] = !!b.yes;
           if (judges().every(x => x.id in S.verdict)) finishVerdict();
         }
@@ -272,78 +300,94 @@ function createRoom(usedInit) {
         if (S.phase === 'words' && p && p.alive && w) { S.sub[id] = w; if (alive().every(x => S.sub[x.id])) revealWords(); }
         return {};
       }
-      // ноутбук (лише з ключем, який знає екран гри на ноутбуці)
-      case 'start': case 'next': case 'lobby': case 'kick':
-        if (b.key !== room.hostKey) return { error: 'Керувати грою можна лише з екрана ведучого' };
-        return hostAction(b);
+      // ведучий
+      case 'start': case 'next': case 'lobby': case 'kick': {
+        if (!isHost) return { error: 'Це може лише ведучий' };
+        if (b.action === 'start') { const e = startGame(); return e ? { error: e } : {}; }
+        if (b.action === 'next') { hostNext(); return {}; }
+        if (b.action === 'lobby') { toLobby(); return {}; }
+        if (S.phase === 'lobby' && b.target !== room.hostId) players = players.filter(x => x.id !== b.target);
+        return {};
+      }
     }
     return { error: 'Невідома дія' };
   }
-  function hostAction(b) {
-    switch (b.action) {
-      case 'start': { const e = startGame(); return e ? { error: e } : {}; }
-      case 'next': hostNext(); return {};
-      case 'lobby': toLobby(); return {};
-      case 'kick': if (S.phase === 'lobby') players = players.filter(x => x.id !== b.target); return {};
-    }
-    return {};
-  }
 
   // ---------- що бачить кожен ----------
-  function publicView() {
+  function view(token, isScreenHost) {
     const ph = S.phase;
     const showChars = !['lobby', 'roles', 'names'].includes(ph);
+    const p = byToken(token);
     const v = {
-      code: room.code, phase: ph, now: Date.now(), endsAt: S.endsAt || 0,
-      theme: ph === 'lobby' ? null : S.theme,
+      code: room.code, phase: ph, now: Date.now(), endsAt: S.endsAt || 0, game: S.game || '',
+      theme: ph === 'lobby' ? null : S.theme, hostId: room.hostId,
+      spies: ph === 'lobby' ? (players.length >= TWO_SPIES_FROM ? 2 : 1) : S.spyIds.length, maxPlayers: MAX_PLAYERS,
       notice: S.notice || '', voteNo: S.voteNo || 1, extra: S.extra || null,
-      players: players.map(p => ({ id: p.id, name: p.name, alive: p.alive !== false, online: isOnline(p.id), char: showChars ? p.char : '' })),
+      players: players.map(x => ({ id: x.id, name: x.name, alive: x.alive !== false, online: isOnline(x.id), char: showChars ? x.char : '' })),
       done: [],
     };
     if (['roles', 'names', 'drawing', 'words'].includes(ph)) v.done = Object.keys(S.sub || {});
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
-    if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; }
+    if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
     if (ph === 'questions' || ph === 'items') { v.order = S.order; v.idx = S.idx; v.stage = S.stage; v.target = S.target || null; }
     if (ph === 'items' || ph === 'itemsDone') v.items = S.items;
+    if (ph === 'drawReveal') v.drawings = S.drawings;
     if (ph === 'voteResult') v.res = S.res;
     if (ph === 'wordsReveal') v.words = S.words;
-    if (ph === 'end') v.end = { ...S.win, location: S.location, spyId: S.spyId, guess: S.guess || '' };
+    if (ph === 'end') v.end = { ...S.win, location: S.location, spyIds: S.spyIds, guess: S.guess || '', guessBy: S.guessBy || null };
+
+    const amHost = isScreenHost || (p && p.id === room.hostId);
+    v.amHost = !!amHost;
+    if (amHost) {
+      v.lanUrls = lanUrls();
+      // поточну локацію додаємо до пам'яті ведучого лише після кінця партії, щоб не світити її
+      if (ph === 'roles' || ph === 'end') v.used = [...used].filter(k => ph === 'end' || k !== S.theme + '|' + S.location);
+    }
+    if (p) {
+      const inGame = ph !== 'lobby';
+      const amSpy = inGame && isSpy(p.id);
+      v.me = {
+        id: p.id, name: p.name, alive: p.alive !== false, isSpy: amSpy,
+        partners: amSpy ? S.spyIds.filter(x => x !== p.id).map(nm) : [],
+        canGuess: ph === 'guess' && amSpy && guessers().includes(p.id) && !S.skips[p.id],
+        location: inGame && !amSpy ? S.location : null,
+        mine: S.sub ? S.sub[p.id] || null : null,
+        vote: S.votes ? S.votes[p.id] || null : null,
+        verdict: S.verdict && p.id in S.verdict ? S.verdict[p.id] : null,
+      };
+      if (ph === 'drawing' && v.me.mine) v.me.mine = true;   // картинку назад не шлемо
+    } else v.me = null;
     return v;
   }
-  function hostView() {
-    const v = publicView();
-    v.lanUrls = lanUrls();
-    // ноутбук зберігає список зіграних локацій собі; поточну додаємо лише після кінця партії, щоб не світити її
-  if (S.phase === 'roles' || S.phase === 'end') v.used = [...used].filter(k => S.phase === 'end' || k !== S.theme + '|' + S.location);
-    if (S.phase === 'drawReveal') v.drawings = S.drawings;
-    return v;
-  }
-  function playerView(id) {
-    const v = publicView();
-    const p = byId(id);
-    if (!p) { v.me = null; return v; }
-    const inGame = S.phase !== 'lobby';
-    const isSpy = inGame && S.spyId === id;
-    v.me = {
-      id, name: p.name, alive: p.alive !== false, isSpy,
-      location: inGame && !isSpy ? S.location : null,
-      mine: S.sub ? S.sub[id] || null : null,
-      vote: S.votes ? S.votes[id] || null : null,
-      verdict: S.verdict && id in S.verdict ? S.verdict[id] : null,
-    };
-    if (S.phase === 'drawing' && v.me.mine) v.me.mine = true;   // картинку назад не шлемо
-    return v;
+  const send = c => c.res.write('data: ' + JSON.stringify(view(c.token, c.host)) + '\n\n');
+  const broadcast = () => { for (const c of room.conns) { try { send(c); } catch (e) {} } };
+
+  // якщо ведучий-гравець зник більш ніж на 20 с — ведучим стає наступний гравець онлайн
+  function checkHost() {
+    if (!room.hostId) return;
+    if (isOnline(room.hostId)) { room.hostOffSince = 0; return; }
+    if (!room.hostOffSince) { room.hostOffSince = Date.now(); return; }
+    if (Date.now() - room.hostOffSince > 20000) {
+      const next = players.find(x => x.id !== room.hostId && isOnline(x.id));
+      if (next) { room.hostId = next.id; room.hostOffSince = 0; broadcast(); }
+    }
   }
 
-  Object.assign(room, { handle, hostView, playerView, broadcast, isOnline, byId, stop: () => clearTimeout(timer) });
+  Object.assign(room, {
+    handle, view, send, broadcast, isOnline, byToken,
+    tokenId: t => { const p = byToken(t); return p ? p.id : ''; },
+    checkHost, stop: () => clearTimeout(timer),
+  });
   rooms.set(room.code, room);
   return room;
 }
 
-// старі порожні кімнати прибираємо
 setInterval(() => {
-  for (const [code, r] of rooms) if (!r.conns.size && Date.now() - r.lastActive > 3 * 3600e3) { r.stop(); rooms.delete(code); }
-}, 10 * 60e3);
+  for (const [code, r] of rooms) {
+    r.checkHost();
+    if (!r.conns.size && Date.now() - r.lastActive > 3 * 3600e3) { r.stop(); rooms.delete(code); }
+  }
+}, 5000);
 
 // ---------- мережа ----------
 function lanUrls() {
@@ -356,7 +400,7 @@ function lanUrls() {
         else if (/^10\./.test(a.address)) score += 2;
         else if (/^172\.(1[6-9]|2\d|3[01])\./.test(a.address)) score += 1;
         if (/vEthernet|VirtualBox|VMware|WSL|Docker|Hyper-V|vmnet|Loopback|Bluetooth/i.test(name)) score -= 10;
-        list.push({ score, url: `http://${a.address}:${PORT}/play` });
+        list.push({ score, url: `http://${a.address}:${PORT}/` });
       }
     }
   }
@@ -368,8 +412,8 @@ setInterval(() => {
   for (const r of rooms.values()) for (const c of r.conns) { try { c.res.write('event: ping\ndata: 1\n\n'); } catch (e) {} }
 }, 15000);
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png' };
-const ROUTES = { '/': 'host.html', '/play': 'play.html', '/play/': 'play.html' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.webmanifest': 'application/manifest+json' };
+const ROUTES = { '/': 'play.html', '/play': 'play.html', '/play/': 'play.html', '/screen': 'screen.html', '/screen/': 'screen.html' };
 const getRoom = code => rooms.get(String(code || '').trim().toUpperCase());
 const json = (res, obj) => { res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
 
@@ -382,13 +426,14 @@ const server = http.createServer((req, res) => {
     res.write('retry: 1500\n\n');
     const room = getRoom(q('room'));
     if (!room) { res.write('data: {"noRoom":true}\n\n'); return res.end(); }
-    const c = { res, id: q('id'), host: q('host') === '1' && q('key') === room.hostKey };
+    const c = { res, token: q('t'), host: q('key') === room.hostKey };
+    const pid = room.tokenId(c.token);
     room.conns.add(c); room.lastActive = Date.now();
-    if (c.id) room.online.set(c.id, (room.online.get(c.id) || 0) + 1);
+    if (pid) room.online.set(pid, (room.online.get(pid) || 0) + 1);
     room.broadcast();
     req.on('close', () => {
       room.conns.delete(c);
-      if (c.id) room.online.set(c.id, Math.max(0, (room.online.get(c.id) || 1) - 1));
+      if (pid) room.online.set(pid, Math.max(0, (room.online.get(pid) || 1) - 1));
       room.broadcast();
     });
     return;
@@ -398,25 +443,28 @@ const server = http.createServer((req, res) => {
     const room = getRoom(q('room'));
     if (!room) return json(res, { noRoom: true });
     room.lastActive = Date.now();
-    const id = q('id');
-    if (id && room.byId(id)) { const was = room.isOnline(id); room.polled.set(id, Date.now()); if (!was) setTimeout(room.broadcast, 0); }
-    return json(res, q('host') === '1' && q('key') === room.hostKey ? room.hostView() : room.playerView(id));
+    const pid = room.tokenId(q('t'));
+    if (pid) { const was = room.isOnline(pid); room.polled.set(pid, Date.now()); if (!was) setTimeout(room.broadcast, 0); }
+    return json(res, room.view(q('t'), q('key') === room.hostKey));
   }
 
   if (req.method === 'GET' && u.pathname === '/exists') {
     const room = getRoom(q('room'));
-    return json(res, { ok: !!room && room.hostKey === q('key') });
+    return json(res, { ok: !!room, host: !!room && room.hostKey === q('key'), player: !!room && !!room.tokenId(q('t')) });
   }
 
   if (req.method === 'POST' && u.pathname === '/api') {
     let body = '';
-    req.on('data', d => { body += d; if (body.length > 3e6) req.destroy(); });
+    req.on('data', d => { body += d; if (body.length > 1e6) req.destroy(); });
     req.on('end', () => {
       let b; try { b = JSON.parse(body || '{}'); } catch (e) { return json(res, { error: 'Помилка запиту' }); }
       if (b.action === 'create') {
         if (rooms.size >= MAX_ROOMS) return json(res, { error: 'Сервер переповнений, спробуйте пізніше' });
         const r = createRoom(b.used);
-        return json(res, { room: r.code, key: r.hostKey });
+        const out = { room: r.code, key: r.hostKey };
+        const name = String(b.name || '').trim();
+        if (name) Object.assign(out, r.handle({ action: 'join', name, asHost: true }));   // ведучий-гравець
+        return json(res, out);
       }
       const room = getRoom(b.room);
       if (!room) return json(res, { error: 'Кімнату не знайдено. Перевір код.', noRoom: true });
@@ -441,7 +489,7 @@ const server = http.createServer((req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('\n  ШПИГУН запущено!\n');
-  console.log(`  Екран ведучого:  http://localhost:${PORT}`);
+  console.log(`  Відкрий: http://localhost:${PORT}`);
   console.log('  Щоб зупинити — Ctrl+C\n');
   if (!process.env.NO_OPEN && !process.env.RENDER && !process.env.PORT) {
     const url = `http://localhost:${PORT}`;

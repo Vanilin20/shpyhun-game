@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Шпигун — великий екран</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Manrope:wght@500;600;700;800&family=Unbounded:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="tv">
+<header class="top" id="top" style="padding-inline:40px">
+  <span class="brand" style="font-size:24px">ШПИ<b>Г</b>УН</span>
+  <span class="chip mono" id="codeChip" hidden></span>
+  <span class="chip theme" id="themeChip" hidden></span>
+  <span class="grow"></span>
+  <span id="ringSlot"></span>
+</header>
+<main class="wrap" id="main"></main>
+<footer class="tv-foot" id="foot" hidden></footer>
+<script src="/qrcode.js"></script>
+<script src="/common.js"></script>
+<script>
+// ===== Шпигун — великий екран (ноутбук / ТВ) =====
+// /screen            — створити кімнату, де ведучий — цей екран (гравці лише з телефонів)
+// /screen?r=КОД      — показати вже створену кімнату (ведучий грає з телефона)
+$('#ringSlot').innerHTML = Timer.html();
+$('.ring').style.cssText = 'width:60px;height:60px';
+const urlRoom = (new URLSearchParams(location.search).get('r') || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 4);
+let ROOM = '', KEY = '', st = null, live = null, lastKey = '', urlIdx = 0;
+const P = id => R.P(st, id);
+const act = (action, extra = {}) => postApi({ action, room: ROOM, key: KEY, ...extra }).then(r => { if (r.error) toast(r.error); if (live) live.refresh(); });
+
+function landing(msg) {
+  $('#foot').hidden = true; lastKey = 'landing';
+  $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:26px;justify-items:center;text-align:center;padding-top:6vh">
+    <span class="stamp">Великий екран</span>
+    <div class="brand big">ШПИ<b>Г</b>УН</div>
+    <p class="muted" style="max-width:52ch">Тут буде видно все разом: QR для входу, хто кого питає, малюнки, предмети й результати. Грають усі з телефонів.</p>
+    ${msg ? `<div class="banner">${esc(msg)}</div>` : ''}
+    <div style="display:grid;gap:14px;width:min(520px,100%)">
+      <button class="btn primary wide" id="newBtn">Нова кімната (ведучий — цей екран)</button>
+      <div class="divider">або покажи кімнату з телефона</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px">
+        <input type="text" class="code-in" id="codeIn" maxlength="4" placeholder="КОД" autocomplete="off">
+        <button class="btn" id="showBtn">Показати</button>
+      </div>
+    </div></div>`;
+  $('#newBtn').onclick = createRoom;
+  const show = () => { const c = $('#codeIn').value.toUpperCase().replace(/[^A-Z]/g, ''); if (c.length === 4) open(c); };
+  $('#showBtn').onclick = show;
+  $('#codeIn').onkeydown = e => { if (e.key === 'Enter') show(); };
+}
+async function createRoom() {
+  const r = await postApi({ action: 'create', used: store.get('spy_used') || [] });
+  if (!r.room) return landing(r.error || 'Не вдалося створити кімнату');
+  store.set('spy_screen', { room: r.room, key: r.key });
+  open(r.room);
+}
+async function open(code) {
+  const saved = store.get('spy_screen');
+  ROOM = code; KEY = saved && saved.room === code ? saved.key : '';
+  const ex = await fetch(`/exists?room=${code}&key=${KEY}`).then(r => r.json()).catch(() => ({}));
+  if (!ex.ok) { history.replaceState(null, '', '/screen'); return landing('Кімнату ' + code + ' не знайдено.'); }
+  if (!ex.host) KEY = '';
+  history.replaceState(null, '', '/screen?r=' + code);
+  if (live) live.stop();
+  lastKey = '';
+  live = Live({ room: ROOM, key: KEY, onState: v => { st = v; Timer.set(v); if (v.amHost && v.used) store.set('spy_used', v.used); render(); },
+    onNoRoom: () => { live = null; landing('Кімната закрилась.'); } });
+}
+
+function joinLink() {
+  const base = isLocalHost && st.lanUrls && st.lanUrls.length ? st.lanUrls[urlIdx % st.lanUrls.length] : location.origin + '/';
+  return base + '?r=' + st.code;
+}
+
+function view() {
+  const s = st, cur = s.order ? s.order[s.idx] : null;
+  switch (s.phase) {
+    case 'lobby': {
+      const link = joinLink();
+      return `<div class="tv-lobby">
+        <div style="display:grid;gap:12px;justify-items:center">
+          <div class="qr">${qrSvg(link)}</div>
+          <div class="mono" style="color:var(--paper);font-size:18px">${esc(link.replace(/^https?:\/\//, ''))}</div>
+          ${isLocalHost && (s.lanUrls || []).length > 1 ? `<button class="linkbtn" id="nextUrl">Телефони не відкривають? Інша адреса</button>` : ''}
+        </div>
+        <div style="display:grid;gap:18px">
+          <div><span class="label">Код кімнати</span><div class="code" style="text-align:left;padding-left:0">${esc(s.code)}</div></div>
+          <h1>Скануйте QR і заходьте</h1>
+          <p class="muted">${s.players.length >= 7 ? 'У грі буде <b style="color:var(--red)">два шпигуни</b>.' : 'Від 3 до 12 гравців. Від 7 — два шпигуни.'}</p>
+          <div class="plist" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr))">${s.players.length ? s.players.map(p => `
+            <div class="prow ${p.online ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}</span>${p.id === s.hostId ? '<span class="tag">👑</span>' : ''}
+            ${s.amHost ? `<button class="x" data-kick="${p.id}">×</button>` : ''}</div>`).join('') : '<p class="muted">Поки нікого…</p>'}</div>
+        </div></div>`;
+    }
+    case 'roles': return `<div class="center" style="display:grid;gap:18px;justify-items:center;padding-top:6vh"><span class="stamp big">Цілком таємно</span><h1>Подивіться у свої досьє</h1><p class="muted">Натисніть і тримайте на телефоні. Не показуйте сусідам.</p></div>`;
+    case 'names': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><h1>Хто ви сьогодні?</h1><p class="muted">Кожен вигадує персонажа з натяком на локацію.</p></div>`;
+    case 'namesReveal': return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
+    case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.duel(s)}
+      <p class="muted center" style="font-size:20px">${s.stage === 'pick' ? `${esc(P(cur).name)} обирає, кого спитати` : 'Питання й відповідь — уголос. До 2 хвилин.'}</p>${R.order(s)}`;
+    case 'drawing': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh"><span style="font-size:80px">🎨</span><h1>Малюємо локацію</h1><p class="muted">Потім усі малюнки з'являться тут.</p></div>`;
+    case 'drawReveal': return `${R.phaseTag(s)}<h1>Галерея доказів</h1>${R.gallery(s)}`;
+    case 'items': {
+      const it = s.items.find(x => x.by === cur && s.stage === 'explain');
+      return `${R.phaseTag(s, `Предмети · ${s.idx + 1} з ${s.order.length}`)}
+        <h1>${it ? `${esc(P(cur).name)}: ${it.e} ${esc(it.n)}` : `${esc(P(cur).name)} обирає предмет`}</h1>
+        ${it ? '<p class="muted" style="font-size:20px">Як це пов\'язано з локацією? До 2 хвилин.</p>' : ''}${R.items(s, { current: it ? s.items.indexOf(it) : -1 })}`;
+    }
+    case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
+    case 'vote': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
+      <span class="stamp big">Голосування${s.voteNo === 2 ? ' №2' : ''}</span><h1>Хто шпигун?</h1><p class="muted">Голосуйте на телефонах.</p></div>`;
+    case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
+      return `<div class="verdict-out">${out ? `${av(out, 'xl')}<h1>Вигнали: ${esc(out.name)}</h1>` : '<h1>Нікого не вигнали</h1>'}<p class="muted">Хто він насправді — дізнаємося пізніше.</p></div>
+        <div style="max-width:760px;width:100%;margin:0 auto">${R.bars(s)}</div>`; }
+    case 'guess': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:6vh"><span style="font-size:90px">🕶️</span><h1>Шанс шпигуна</h1>
+      <p class="muted" style="font-size:20px">Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.</p></div>`;
+    case 'verdict': return `<div class="center" style="display:grid;gap:16px;justify-items:center;padding-top:5vh"><span class="label">Шпигун каже</span>
+      <div class="paper" style="--rot:-1.5deg;min-width:min(600px,90vw)"><div class="val" style="font-size:40px">«${esc(s.guess)}»</div></div>
+      <p class="muted" style="font-size:20px">Мирні вирішують на телефонах, чи це правильно.</p></div>`;
+    case 'words': return `<div class="center" style="display:grid;gap:14px;padding-top:6vh">${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}<h1>Одне слово</h1><p class="muted">Кожен пише одне слово про локацію.</p></div>`;
+    case 'wordsReveal': return `${R.phaseTag(s)}<h1>Слова на стіл</h1>${R.words(s)}`;
+    case 'end': { const e = s.end, spyWon = e.winner === 'spy';
+      return `<div class="end-hero"><span class="stamp big ${spyWon ? '' : 'green'}">${spyWon ? (e.spyIds.length > 1 ? 'Перемогли шпигуни' : 'Переміг шпигун') : 'Мирні перемогли'}</span>
+        <p class="muted" style="font-size:20px">${REASON[e.reason] || ''}</p></div>
+        <div style="max-width:900px;width:100%;margin:0 auto">${R.endReveal(s).replace('class="reveal3"', 'class="reveal3" style="grid-template-columns:1fr 1fr"')}</div>`; }
+  }
+  return '';
+}
+
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'voteResult', 'wordsReveal'];
+function actions() {
+  if (!st.amHost) return '';
+  if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}>Почати гру · ${n}</button>`; }
+  if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start">Нова гра</button>`;
+  if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
+  return `<button class="btn ghost small" data-host="next">${st.phase === 'questions' || st.phase === 'items' ? 'Пропустити хід' : 'Не чекати'}</button>`;
+}
+
+function render() {
+  const s = st;
+  $('#codeChip').hidden = false; $('#codeChip').textContent = 'КОД ' + s.code;
+  $('#themeChip').hidden = !s.theme; $('#themeChip').textContent = s.theme || '';
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.idx, s.target, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost,
+    s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0]);
+  if (key !== lastKey) {
+    lastKey = key;
+    $('#main').innerHTML = `<div class="screen-in" style="display:grid;gap:24px">${view()}</div>`;
+    $('#main').querySelectorAll('[data-kick]').forEach(b => b.onclick = () => act('kick', { target: b.dataset.kick }));
+    if ($('#nextUrl')) $('#nextUrl').onclick = () => { urlIdx++; lastKey = ''; render(); };
+    R.bindZoom($('#main'));
+    if (s.phase === 'end') confetti();
+  }
+  const done = new Set(s.done || []);
+  const foot = s.phase === 'lobby' ? '' : s.players.map(p => `<div class="prow ${done.has(p.id) ? 'done' : ''} ${p.alive ? '' : 'off'}">${av(p)}<span class="nm">${esc(p.name)}</span></div>`).join('');
+  const a = actions();
+  $('#foot').hidden = !foot && !a;
+  $('#foot').innerHTML = foot + (a ? `<div class="actions">${a}</div>` : '');
+  $('#foot').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; act(b.dataset.host); });
+  Timer.tick();
+}
+
+if (urlRoom) open(urlRoom);
+else { const saved = store.get('spy_screen'); saved && saved.room ? open(saved.room) : landing(); }
+</script>
+</body>
+</html>
