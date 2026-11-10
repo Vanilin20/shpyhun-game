@@ -582,7 +582,16 @@ function createRoom(usedInit, code) {
         }
         if (b.action === 'resetScore') { players.forEach(x => { x.score = 0; }); return {}; }
         if (b.action === 'start') { const e = startGame(); return e ? { error: e } : {}; }
-        if (b.action === 'next') { hostNext(); return {}; }
+        if (b.action === 'next') {
+          // захист від подвійного тапу: кнопка «Далі» стоїть на тому самому місці в кожній фазі,
+          // тож другий тап міг пропустити наступний раунд
+          if (b.ph) {   // запити з кнопок клієнта несуть фазу, яку бачив ведучий
+            if (b.ph !== S.phase || (b.stg || '') !== (S.stage || '')) return {};
+            if (Date.now() - (room.lastNextAt || 0) < 900) return {};
+          }
+          room.lastNextAt = Date.now();
+          hostNext(); return {};
+        }
         if (b.action === 'lobby') { toLobby(); return {}; }
         if (S.phase === 'lobby' && b.target !== room.hostId) players = players.filter(x => x.id !== b.target);
         return {};

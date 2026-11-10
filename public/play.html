@@ -620,7 +620,7 @@ function render() {
   const hk = hb + [s.game, s.phase, s.stage, s.qi, s.idx].join();   // новий хід — кнопка знову активна
   if (hb && $('#hostbar .inner').dataset.k !== hk) {
     $('#hostbar .inner').dataset.k = hk; $('#hostbar .inner').innerHTML = hb;
-    $('#hostbar').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.host); });
+    $('#hostbar').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.host, b.dataset.host === 'next' ? { ph: st.phase, stg: st.stage || '' } : {}); });
   }
   // вібрація, коли твій хід
   const cur = s.order ? s.order[s.idx] : null;

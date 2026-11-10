@@ -183,7 +183,7 @@ function render() {
   const a = actions();
   $('#foot').hidden = !foot && !a;
   $('#foot').innerHTML = foot + (a ? `<div class="actions">${a}</div>` : '');
-  $('#foot').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; act(b.dataset.host); });
+  $('#foot').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; act(b.dataset.host, b.dataset.host === 'next' ? { ph: st.phase, stg: st.stage || '' } : {}); });
   Timer.tick();
 }
 
