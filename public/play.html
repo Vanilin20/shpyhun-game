@@ -88,7 +88,7 @@ const RULES = `<details class="rules"><summary><span>Правила гри</span
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
   <li><b>Імена по колу:</b> по черзі кожен вигадує персонажа з натяком на локацію — і бачить імена тих, хто вже назвався.</li>
   <li><b>Допит по колу:</b> кожен питає наступного гравця вголос — 2 хвилини на питання.</li>
-    <li><b>Два випадкові раунди</b> щогри — один після імен, другий перед голосуванням: малювання, предмети, сцена з наліпок, три емодзі або анонімні записки.</li>
+    <li><b>Два випадкові раунди</b> щогри — один після імен, другий перед голосуванням: малювання, предмети, сцена з наліпок або три емодзі.</li>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Кожен окремо може назвати локацію: помилився — вибуває лише він. Голосувань до трьох (перед третім — ще один випадковий раунд). Мирним треба вигнати обох.</li>
@@ -475,24 +475,6 @@ function screenHtml() {
         <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
     case 'sceneReveal':
       return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
-    case 'notes': {
-      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть записки…')}`;
-      if (s.stage === 'ask') {
-        if (m.mine) return `${R.phaseTag(s)}${wait('Записку відправлено. Чекаємо інших…')}`;
-        return `${R.phaseTag(s)}<h1>Анонімна записка</h1>
-          <p class="muted">Напиши питання про локацію. Його отримає випадковий гравець, і ніхто не дізнається, що це ти.${m.isSpy ? ' Ти шпигун — відповідь на твоє питання може щось підказати.' : ''}</p>
-          <textarea id="rtxt" maxlength="160" rows="3" placeholder="Напр.: Що ти тут боїшся загубити?"></textarea>
-          <button class="btn primary wide" id="rsend" data-a="note">Відправити</button><div id="dots"></div>`;
-      }
-      if (!m.noteQ) return `${R.phaseTag(s)}${wait('Інші відповідають на записки…')}`;
-      if (m.mine) return `${R.phaseTag(s)}${wait('Відповідь відправлено. Чекаємо інших…')}`;
-      return `${R.phaseTag(s)}<h1>Тобі записка</h1>
-        <div class="paper note" style="--rot:-1deg"><div class="nq">${esc(m.noteQ)}</div></div>
-        <textarea id="rtxt" maxlength="160" rows="3" placeholder="Анонімна відповідь…"></textarea>
-        <button class="btn primary wide" id="rsend" data-a="note">Відповісти</button><div id="dots"></div>`;
-    }
-    case 'notesReveal':
-      return `${R.phaseTag(s)}<h1>Анонімні записки</h1>${R.notes(s)}`;
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
@@ -544,7 +526,7 @@ function screenHtml() {
 }
 
 // ---------- кнопки ведучого ----------
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'voteResult', 'wordsReveal'];
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';

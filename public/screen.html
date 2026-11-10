@@ -119,8 +119,6 @@ function view() {
     case 'emojiReveal': return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
     case 'scene': return `<div class="tv-wait"><h1 class="headline">${ransom('Колаж', 64)}<span>Складаємо сцени</span><small>Кожен складає місце з 1–5 наліпок. Потім усі сцени з'являться тут.</small></h1></div>`;
     case 'sceneReveal': return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
-    case 'notes': return `<div class="tv-wait"><h1 class="headline">${ransom('Записки', 64)}<span>Анонімна пошта</span><small>${s.stage === 'ask' ? 'Кожен пише питання — його отримає випадковий гравець.' : 'Тепер кожен анонімно відповідає на записку.'}</small></h1></div>`;
-    case 'notesReveal': return `${R.phaseTag(s)}<h1>Анонімні записки</h1><div style="max-width:1000px;width:100%;margin:0 auto">${R.notes(s)}</div>`;
     case 'vote': return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
       <div class="wanted-head"><span class="kicker">★ ★ ★ Увага ★ ★ ★</span><h1>${ransom('Розшукується', 56)}</h1><span class="deck-line">шпигун · голосуйте на телефонах</span></div>
       <div class="wanted-grid">${R.alive(s).filter(p => !s.cands || s.cands.includes(p.id)).map((p, i) => R.poster(s, p, { i })).join('')}</div>`;
@@ -140,7 +138,7 @@ function view() {
   return '';
 }
 
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'voteResult', 'wordsReveal'];
 function actions() {
   if (!st.amHost) return '';
   if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}><span class="star">☞</span>Відкрити засідання · ${n}</button>`; }

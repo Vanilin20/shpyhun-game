@@ -488,13 +488,6 @@ canvas { display: block; width: 100%; aspect-ratio: 1; touch-action: none; }
 .emo-row span { display: grid; place-items: center; aspect-ratio: 1; font: clamp(26px, 9vw, 40px)/1 var(--emo); background: rgba(42, 33, 23, .06); overflow: hidden; }
 .big.emo, .val.emo { font: clamp(26px, 8vw, 40px)/1.2 var(--emo); white-space: nowrap; }
 
-/* записки */
-.notes { display: grid; gap: 16px; }
-.note { display: grid; gap: 8px; }
-.note .nq { font: italic 700 17px/1.3 var(--disp); }
-.note .nq::before { content: "✉ "; font-style: normal; color: var(--accent); }
-.note .na { font: 18px/1.35 var(--body); padding-left: 12px; border-left: 3px solid var(--accent); }
-
 /* ---------- нижня панель ведучого ---------- */
 .hostbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex;
@@ -604,7 +597,6 @@ body.reconnecting::before { content: "Друкарня перезапускає�
 .tv .bub { font-size: 28px; }
 .tv .bar { font-size: 22px; } .tv .bar .track { height: 32px; }
 .tv .nrow .cn { font-size: 30px; } .tv .nrow .pn { font-size: 15px; }
-.tv .note .nq { font-size: 26px; } .tv .note .na { font-size: 28px; }
 .tv .emo-row span { font-size: 46px; }
 .tv .vline { font-size: 18px; }
 .tv .wanted-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 24px; max-width: 1240px; width: 100%; margin: 0 auto; }

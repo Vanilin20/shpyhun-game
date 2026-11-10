@@ -46,9 +46,9 @@ const SEC = {
   question: 120,                      // одне питання й відповідь (допит іде по колу)
   drawing: 70, itemPick: 25, explain: 120,
   vote: 45, guess: 30, verdict: 45, words: 40, emoji: 120,
-  scene: 100, notesAsk: 60, notesAnswer: 60,
+  scene: 100,
   // показ результатів (ведучий може натиснути «Далі» раніше)
-  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30, sceneReveal: 45, notesReveal: 50,
+  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30, sceneReveal: 45,
 };
 
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -71,12 +71,12 @@ function createRoom(usedInit, code) {
   const room = {
     code: code || newCode(), hostKey: rid(16), hostId: null,
     conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
-    settings: { drawing: true, items: true, scene: true, emoji: true, notes: true, pace: 1, remote: false },   // налаштування ведучого в лобі
+    settings: { drawing: true, items: true, scene: true, emoji: true, pace: 1, remote: false },   // налаштування ведучого в лобі
     chat: [], chatSeq: 0, chatAt: new Map(), lastRounds: [],   // чат кімнати (останні 80 повідомлень)
     history: [],                                                 // архів партій кімнати (останні 30)
   };
   // темп впливає на ігрові етапи, а не на показ результатів і не на 30 с шпигуна
-  const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene', 'notesAsk', 'notesAnswer'];
+  const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene'];
   const T = k => Math.round(SEC[k] * (PACED.includes(k) ? room.settings.pace : 1));
 
   let players = [];            // { id, token, name, alive, char }
@@ -154,7 +154,7 @@ function createRoom(usedInit, code) {
   // тож вона не збивається, навіть якщо кімнату створили заново чи сервер перезапустився.
   // Додаткові раунди: щогри випадково 2 різні з увімкнених — один після імен, другий перед голосуванням.
   // Раунди з минулої партії по змозі не повторюються.
-  const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'notes'];
+  const ROUNDS = ['drawing', 'items', 'scene', 'emoji'];
   // вага раунду для теми (THEME_FIT): підходящі випадають частіше, вага 0 — ніколи.
   // Раунди минулої партії не повторюються, поки є з чого обрати інші.
   function pickRounds() {
@@ -181,7 +181,7 @@ function createRoom(usedInit, code) {
     const k = (S.slots || [])[i];
     if (!k) return i === 0 ? toQuestions() : toVote();
     S.extra = k;
-    if (k === 'emoji') toEmoji(); else if (k === 'notes') toNotes(); else startExtra();
+    if (k === 'emoji') toEmoji(); else startExtra();
   }
   function roundDone() { if (S.slot === 0) toQuestions(); else toVote(); }
 
@@ -195,20 +195,6 @@ function createRoom(usedInit, code) {
   }
   function revealScene() { S.scenes = { ...S.sub }; S.sub = {}; S.phase = 'sceneReveal'; setTimer(T('sceneReveal'), roundDone); }
 
-  // анонімні записки: кожен пише питання, воно йде іншому гравцю, той анонімно відповідає
-  function toNotes() { S.phase = 'notes'; S.stage = 'ask'; S.sub = {}; S.notes = []; setTimer(T('notesAsk'), notesToAnswer); }
-  function notesToAnswer() {
-    const ids = shuffle(alive().map(p => p.id));
-    // кожне питання — наступному в перемішаному колі, тож собі ніхто не відповідає
-    S.notes = ids.map((from, i) => ({ from, to: ids[(i + 1) % ids.length], q: S.sub[from] || '', a: '' })).filter(n => n.q);
-    S.sub = {}; S.stage = 'answer';
-    if (!S.notes.length) return revealNotes();
-    setTimer(T('notesAnswer'), revealNotes);
-  }
-  function revealNotes() {
-    S.notesOut = shuffle(S.notes.map(n => ({ q: n.q, a: n.a || '—' })));
-    S.phase = 'notesReveal'; S.stage = ''; setTimer(T('notesReveal'), roundDone);
-  }
 
   // емодзі: кожен за 2 хвилини вводить 3 емодзі про локацію, потім показуємо всім
   function toEmoji() { S.phase = 'emoji'; S.sub = {}; setTimer(T('emoji'), revealEmoji); }
@@ -370,10 +356,6 @@ function createRoom(usedInit, code) {
       case 'words': if (alive().every(x => S.sub[x.id])) revealWords(); break;
       case 'emoji': if (alive().every(x => S.sub[x.id])) revealEmoji(); break;
       case 'scene': if (alive().every(x => S.sub[x.id])) revealScene(); break;
-      case 'notes':
-        if (S.stage === 'ask' && alive().every(x => S.sub[x.id])) notesToAnswer();
-        else if (S.stage === 'answer' && S.notes.every(x => x.a || !byId(x.to) || !byId(x.to).alive)) revealNotes();
-        break;
       case 'vote': if (alive().every(x => S.votes[x.id])) tally(); break;
       case 'verdict': if (judges().filter(x => isOnline(x.id)).every(x => x.id in S.verdict)) finishVerdict(); break;
     }
@@ -394,8 +376,6 @@ function createRoom(usedInit, code) {
       case 'emojiReveal': return roundDone();
       case 'scene': return revealScene();
       case 'sceneReveal': return roundDone();
-      case 'notes': return S.stage === 'ask' ? notesToAnswer() : revealNotes();
-      case 'notesReveal': return roundDone();
       case 'vote': return tally();
       case 'voteResult': return toGuess();
       case 'guess': return afterGuess();
@@ -479,16 +459,6 @@ function createRoom(usedInit, code) {
           if (alive().every(x => S.sub[x.id])) revealScene();
         }
         return {};
-      case 'note': {
-        const t = String(b.text || '').trim().slice(0, 160);
-        if (S.phase !== 'notes' || !p || !p.alive || !t) return {};
-        if (S.stage === 'ask' && !S.sub[id]) { S.sub[id] = t; if (alive().every(x => S.sub[x.id])) notesToAnswer(); }
-        else if (S.stage === 'answer') {
-          const n = S.notes.find(x => x.to === id && !x.a);
-          if (n) { n.a = t; if (S.notes.every(x => x.a || !byId(x.to) || !byId(x.to).alive)) revealNotes(); }
-        }
-        return {};
-      }
       case 'draw':
         if (S.phase === 'drawing' && p && p.alive && typeof b.img === 'string' && b.img.startsWith('data:image/') && b.img.length < 6e5) {
           S.sub[id] = b.img;
@@ -545,7 +515,7 @@ function createRoom(usedInit, code) {
         if (b.action === 'settings') {
           if (S.phase !== 'lobby' && S.phase !== 'end') return { error: 'Налаштування — лише між партіями' };
           const n = b.settings || {}, st = room.settings;
-          for (const k of ['drawing', 'items', 'scene', 'emoji', 'notes', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
+          for (const k of ['drawing', 'items', 'scene', 'emoji', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
           if ([0.67, 1, 1.5].includes(n.pace)) st.pace = n.pace;
           return {};
         }
@@ -575,10 +545,8 @@ function createRoom(usedInit, code) {
       done: [],
     };
     if (['roles', 'names', 'drawing', 'words', 'emoji', 'scene'].includes(ph)) v.done = Object.keys(S.sub || {});
-    if (ph === 'notes') { v.stage = S.stage; v.done = S.stage === 'ask' ? Object.keys(S.sub) : S.notes.filter(n => n.a).map(n => n.to); }
     if (ph === 'scene') v.stickers = S.stickers;
     if (ph === 'sceneReveal') v.scenes = S.scenes;
-    if (ph === 'notesReveal') v.notes = S.notesOut;
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
     if (ph === 'guess') v.done = guessers().filter(g => S.skips[g] || S.pending[g]);
     if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
@@ -616,10 +584,6 @@ function createRoom(usedInit, code) {
         verdict: S.verdict && p.id in S.verdict ? S.verdict[p.id] : null,
       };
       if ((ph === 'drawing' || ph === 'scene') && v.me.mine) v.me.mine = true;   // картинку назад не шлемо
-      if (ph === 'notes' && S.stage === 'answer') {
-        const n = S.notes.find(x => x.to === p.id);
-        v.me.noteQ = n ? n.q : null; v.me.mine = n ? n.a || null : null;
-      }
     } else v.me = null;
     return v;
   }
@@ -635,7 +599,7 @@ function createRoom(usedInit, code) {
     drawing: revealDrawings, drawReveal: roundDone, items: itemsTimeout, itemsDone: roundDone,
     emoji: revealEmoji, emojiReveal: roundDone,
     scene: revealScene, sceneReveal: roundDone,
-    notes: () => (S.stage === 'ask' ? notesToAnswer() : revealNotes()), notesReveal: roundDone, vote: tally, voteResult: toGuess,
+    vote: tally, voteResult: toGuess,
     guess: afterGuess, verdict: finishVerdict, words: revealWords, wordsReveal: () => toVote(),
   };
   function restore(d) {
