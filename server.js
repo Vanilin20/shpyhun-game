@@ -219,14 +219,8 @@ function createRoom(usedInit, code) {
     else if (S.extra === 'scene') toScene();
     else {
       S.phase = 'items';
-      // 12 предметів: 2 від справжньої локації, 7 від інших локацій теми, 3 випадкові —
-      // пов'язані з місцем, але не видають, з яким саме
-      const mine = LOC_ITEMS[S.location] || [];
-      const others = shuffle((THEMES[S.theme] || []).filter(l => l !== S.location).flatMap(l => LOC_ITEMS[l] || []));
-      const seen = new Set(mine.map(x => x[1]));
-      const themed = mine.concat(others.filter(x => !seen.has(x[1]) && (seen.add(x[1]), true)).slice(0, 7));
-      const extra = shuffle(ITEMS.filter(x => !seen.has(x[1]))).slice(0, Math.max(0, 12 - themed.length));
-      S.items = shuffle(themed.concat(extra)).slice(0, 12).map(([e, n]) => ({ e, n, by: null }));
+      // 12 нейтральних предметів, не привʼязаних до локацій: зв'язок треба вигадати, а не «він там часто трапляється»
+      S.items = shuffle(ITEMS).slice(0, 12).map(([e, n]) => ({ e, n, by: null }));
       S.order = shuffle(alive().map(p => p.id)); S.idx = 0;
       startPick();
     }
