@@ -358,7 +358,23 @@ const wait = txt => waiting(`<span>${txt}</span><div id="dots"></div>`);
 const outBanner = () => me().alive ? '' : `<div class="banner info">Тебе вигнали з товариства. Спостерігай і не підказуй.</div>`;
 const notice = () => st.notice ? `<div class="banner">${esc(st.notice)}</div>` : '';
 
+const TEXT_UI = {
+  horoscope: { h: 'Гороскоп дня', p: 'Напиши прогноз на сьогодні для відвідувачів цього місця. Не називай його.', ph: 'Овнам сьогодні краще не…', ready: 'Твій прогноз' },
+  ads: { h: 'Дрібне оголошення', p: 'Оголошення від імені цього місця: «Продам / Шукаю / Загубилось». Не називай його.', ph: 'Шукаю того, хто закриє двері. Терміново', ready: 'Твоє оголошення' },
+  headline: { h: 'Заголовок дня', p: 'Новинний заголовок про те, що сталося тут сьогодні. Не називай місце.', ph: 'Сенсація: …', ready: 'Твій заголовок' },
+};
+const FAV_TITLE = { reviewReveal: ['review', 'Відгуки відвідувачів'], horoscopeReveal: ['horoscope', 'Гороскоп на сьогодні'], adsReveal: ['ads', 'Дрібні оголошення'], headlineReveal: ['headline', 'Головні новини дня'] };
+function textRound(s, m) {
+  const u = TEXT_UI[s.phase];
+  if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть…')}`;
+  if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">${u.ready}</div><p class="center">${esc(m.mine)}</p></div>${wait('Чекаємо інших…')}`;
+  return `${R.phaseTag(s)}<h1>${u.h}</h1><p class="muted">${m.isSpy ? `Ти шпигун. Пиши так, ніби знаєш місце, — підлаштуйся під тему «${esc(s.theme)}».` : u.p}</p>
+    <textarea id="rtxt" maxlength="140" rows="3" placeholder="${esc(u.ph)}"></textarea>
+    <button class="btn primary wide" id="rsend" data-a="text">Готово</button><div id="dots"></div>`;
+}
 function screenHtml() {
+  if (TEXT_UI[st.phase]) return textRound(st, me());
+  if (FAV_TITLE[st.phase]) return `${R.phaseTag(st)}<h1>${FAV_TITLE[st.phase][1]}</h1>${R.fav(st, FAV_TITLE[st.phase][0], true)}`;
   const s = st, m = me(), cur = s.order ? s.order[s.idx] : null;
   switch (s.phase) {
     case 'lobby': {
@@ -471,8 +487,6 @@ function screenHtml() {
         <textarea id="rvtxt" maxlength="140" rows="3" placeholder="Напр.: Дорого, довго чекали, але персонал душка…"></textarea>
         <button class="btn primary wide" id="rvSend" disabled>Опублікувати</button><div id="dots"></div>`;
     }
-    case 'reviewReveal':
-      return `${R.phaseTag(s)}<h1>Відгуки відвідувачів</h1>${R.reviews(s)}`;
     case 'auction': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші роблять ставки…')}`;
       if (m.mine) return `${R.phaseTag(s)}${wait('Ставки зроблено. Чекаємо інших…')}`;
@@ -548,7 +562,7 @@ function screenHtml() {
 }
 
 // ---------- кнопки ведучого ----------
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'reviewReveal', 'auctionReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'reviewReveal', 'auctionReveal', 'horoscopeReveal', 'adsReveal', 'headlineReveal', 'voteResult', 'wordsReveal'];
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';
@@ -578,7 +592,7 @@ function render() {
   if (s.phase !== 'scene') { sceneSent = false; sceneApi = null; }
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, m.canGuess, m.guessed, s.settings, s.players.map(p => p.score), Sound.on,
+  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, m.favPick, m.canGuess, m.guessed, s.settings, s.players.map(p => p.score), Sound.on,
     s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => [i.by, i.txt]) : 0, s.qa, s.named, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
@@ -642,6 +656,7 @@ function bind() {
   };
   if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); $('#send').onclick = sendDrawing; return; }
   if (st.phase === 'scene' && $('#sc')) { sceneApi = setupScene(); $('#send').onclick = sendScene; return; }
+  document.querySelectorAll('[data-fav]').forEach(el => el.onclick = () => api('fav', { target: el.dataset.fav }));
   if (st.phase === 'review' && $('#rvSend')) {
     let stars = 0; const t = $('#rvtxt'), b = $('#rvSend');
     const upd = () => { b.disabled = !(stars && t.value.trim()); };

@@ -157,7 +157,7 @@ const REASON = {
 };
 const PHASE_NAME = {
   roles: 'Досьє', names: 'Імена', namesReveal: 'Імена', questions: 'Допит', drawing: 'Малювання', drawReveal: 'Галерея',
-  items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', review: 'Відгук', reviewReveal: 'Відгуки', auction: 'Аукціон', auctionReveal: 'Підсумки торгів', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
+  items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', review: 'Відгук', reviewReveal: 'Відгуки', horoscope: 'Гороскоп', horoscopeReveal: 'Гороскоп', ads: 'Оголошення', adsReveal: 'Оголошення', headline: 'Заголовок дня', headlineReveal: 'Заголовок дня', auction: 'Аукціон', auctionReveal: 'Підсумки торгів', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
   words: 'Одне слово', wordsReveal: 'Слова', end: 'Справу закрито',
   scene: 'Сцена', sceneReveal: 'Сцени',
 };
@@ -168,7 +168,7 @@ const R = {
   P(st, id) { return st.players.find(p => p.id === id) || { name: '?', char: '' }; },
   alive(st) { return st.players.filter(p => p.alive); },
   // у додаткових раундах після голосування показуємо, що сталося (хто вибув)
-  phaseTag(st, text) { return `<div class="phase-tag"><span>${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji', 'review', 'auction'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
+  phaseTag(st, text) { return `<div class="phase-tag"><span>${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji', 'review', 'auction', 'horoscope', 'ads', 'headline'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
 
   names(st) {
     return `<div class="cards">${st.players.map((p, i) => `
@@ -180,12 +180,24 @@ const R = {
       <div class="card" style="animation-delay:${i * .12}s"><div class="paper" style="${rot(i)}">
         <div class="who">${av(p)}${esc(p.char || p.name)}</div>${cls === 'emo' ? `<div class="emo-row">${((st[field] || {})[p.id] || '').split(' ').filter(Boolean).map(e => `<span>${esc(e)}</span>`).join('') || '—'}</div>` : `<div class="big">${esc((st[field] || {})[p.id] || '—')}</div>`}</div></div>`).join('')}</div>`;
   },
-  // відгуки на локацію: імʼя, зірки, текст
-  reviews(st) {
-    const rv = st.reviews || {};
-    return `<div class="reviews">${R.alive(st).map((p, i) => { const r = rv[p.id]; return `
-      <div class="paper review" style="${rot(i)};animation-delay:${i * .14}s"><div class="who">${av(p)}<b>${esc(dn(p))}</b></div>
-      ${r ? `<div class="stars">${'★'.repeat(r.s)}<i>${'★'.repeat(5 - r.s)}</i></div><p>«${esc(r.t)}»</p>` : '<p class="muted">— не встиг —</p>'}</div>`; }).join('')}</div>`;
+  // записки раундів «відгук / гороскоп / оголошення / заголовок»: картки + голосування за найкращий (не свій)
+  fav(st, kind, interactive = false) {
+    const src = (kind === 'review' ? st.reviews : st.texts) || {}, m = st.me || {};
+    const won = st.stage === 'won', win = st.favWin || [], cnt = st.favCount || {};
+    const ps = R.alive(st).filter(p => src[p.id]);
+    const body = (p, i) => {
+      const e = src[p.id], by = `<div class="by">${kind === 'headline' ? 'Від нашого кореспондента: ' : '— '}${esc(dn(p))}</div>`;
+      if (kind === 'review') return `<div class="who">${av(p)}<b>${esc(dn(p))}</b></div><div class="stars">${'★'.repeat(e.s)}<i>${'★'.repeat(5 - e.s)}</i></div><p>«${esc(e.t)}»</p>`;
+      if (kind === 'horoscope') return `<div class="hs">✦ Гороскоп ✦</div><p>${esc(e)}</p>${by}`;
+      if (kind === 'ads') return `<div class="ad-head">★ Оголошення ★</div><p>${esc(e)}</p>${by}`;
+      return `<h3 class="hl">${esc(e)}</h3>${by}`;
+    };
+    const left = R.alive(st).length - (st.done || []).length;
+    const status = won ? (win.length ? '<p class="muted center">Редакція обрала — на першу шпальту!</p>' : '<p class="muted center">Голосів не було.</p>')
+      : `<p class="muted center">${interactive && m.alive ? (m.favPick ? 'Голос враховано — можна змінити.' : 'Тапни найкращий запис (не свій).') : 'Читаємо й голосуємо за найкращий.'} Проголосували: ${(st.done || []).length} з ${R.alive(st).length}</p>`;
+    return `${status}<div class="fav kind-${kind}">${ps.map((p, i) => `
+      <div class="paper fv ${win.includes(p.id) ? 'win' : ''} ${m.favPick === p.id ? 'picked' : ''} ${interactive && !won && m.alive && p.id !== m.id ? 'tap' : ''}" style="${rot(i)};animation-delay:${i * .12}s" ${interactive && !won && m.alive && p.id !== m.id ? `data-fav="${p.id}"` : ''}>
+        ${body(p, i)}${won ? `<span class="fcount">${cnt[p.id] || 0} ♥</span>` : ''}${win.includes(p.id) ? '<span class="stamp fstamp">На першу шпальту</span>' : ''}</div>`).join('')}</div>`;
   },
   // таблиця ставок аукціону: гравці × лоти, внизу сума
   auction(st) {
@@ -253,7 +265,7 @@ const R = {
     const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
     return `<div class="settings">
       <div class="sec-head"><span>Рубрики номера</span>${ed ? '<small>тисни, щоб увімкнути</small>' : ''}</div>
-      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}${chip('review', 'Відгук')}${chip('auction', 'Аукціон')}</div>
+      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}${chip('review', 'Відгук')}${chip('auction', 'Аукціон')}${chip('horoscope', 'Гороскоп')}${chip('ads', 'Оголошення')}${chip('headline', 'Заголовок')}</div>
       <p class="fine">Щогри випадково 2 різні з увімкнених: одна після імен, друга перед голосуванням.</p>
       <div class="sec-head"><span>Як граємо</span></div>
       <div class="chips"><button class="opt-chip ${s.remote ? '' : 'on'}" ${ed ? 'data-remote="0"' : 'disabled'}>Поруч — уголос</button>

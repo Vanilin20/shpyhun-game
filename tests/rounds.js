@@ -6,7 +6,7 @@ const as = (id, b) => post({ token: TOK[id], ...b });
 const sse = (q, cb) => http.get(BASE + '/events?' + q, res => { let buf = ''; res.on('data', c => { buf += c; let i; while ((i = buf.indexOf('\n\n')) >= 0) { const ev = buf.slice(0, i); buf = buf.slice(i + 2); const m = ev.match(/^data: (.*)$/m); if (m) { const o = JSON.parse(m[1]); if (o.phase || o.noRoom) cb(o); } } }); });
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const assert = (c, m) => { console.log((c ? 'ok: ' : 'FAIL: ') + m); if (!c) process.exitCode = 1; };
-const ROUND_OF = { drawing: 'drawing', drawReveal: 'drawing', items: 'items', itemsDone: 'items', scene: 'scene', sceneReveal: 'scene', emoji: 'emoji', emojiReveal: 'emoji', review: 'review', reviewReveal: 'review', auction: 'auction', auctionReveal: 'auction' };
+const ROUND_OF = { drawing: 'drawing', drawReveal: 'drawing', items: 'items', itemsDone: 'items', scene: 'scene', sceneReveal: 'scene', emoji: 'emoji', emojiReveal: 'emoji', review: 'review', reviewReveal: 'review', auction: 'auction', auctionReveal: 'auction', horoscope: 'horoscope', horoscopeReveal: 'horoscope', ads: 'ads', adsReveal: 'ads', headline: 'headline', headlineReveal: 'headline' };
 (async () => {
   const c = await post({ action: 'create', name: 'Іван', used: [] }); ROOM = c.room; TOK[c.id] = c.token; sse(`room=${ROOM}&t=${c.token}`, v => V[c.id] = v);
   const ids = [c.id];
@@ -36,7 +36,7 @@ const ROUND_OF = { drawing: 'drawing', drawReveal: 'drawing', items: 'items', it
   }
   for (let g = 1; g < games.length; g++) assert(!games[g].some(r => games[g - 1].includes(r)), `партія ${g + 1} не повторює раунди попередньої`);
   // лише один увімкнений — стоїть перед голосуванням
-  await as(host, { action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false } });
+  await as(host, { action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false, horoscope: false, ads: false, headline: false } });
   const one = await playGame();
   assert(one[3] === 'questions' && one[4] === 'emoji', 'один раунд — перед голосуванням: ' + one.slice(1).join(' → '));
   await as(host, { action: 'settings', settings: { emoji: false } });

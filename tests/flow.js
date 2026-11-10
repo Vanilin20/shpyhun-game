@@ -32,7 +32,7 @@ const assert = (c, m) => { if (!c) { console.log('FAIL:', m); process.exitCode =
 
   assert((await post({ action: 'start', key: 'wrong' })).error, 'без ключа ведучого старт заборонено');
   assert((await post({ action: 'join', room: 'ZZZZ', name: 'x' })).noRoom, 'неіснуюча кімната → помилка');
-  await post({ action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false } });
+  await post({ action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false, horoscope: false, ads: false, headline: false } });
   assert(!(await post({ action: 'start' })).error, 'старт');
   await wait(200);
   const spy = ids.find(id => views[id].me.isSpy);

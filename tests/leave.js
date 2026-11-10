@@ -20,7 +20,7 @@ async function room(n) {
   // 2. ведучий (мирний) виходить посеред допиту, 5 гравців
   for (let t = 0; t < 20; t++) {
     ids = await room(5);
-    await as(ids[0], { action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false } });
+    await as(ids[0], { action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false, horoscope: false, ads: false, headline: false } });
     await as(ids[0], { action: 'start' }); await wait(100);
     if (!V[ids[0]].me.isSpy) break;
   }

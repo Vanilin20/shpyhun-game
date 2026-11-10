@@ -48,7 +48,7 @@ const SEC = {
   vote: 45, guess: 30, verdict: 45, words: 40, emoji: 120,
   scene: 100, review: 50, auction: 90,
   // показ результатів (ведучий може натиснути «Далі» раніше)
-  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30, sceneReveal: 45, reviewReveal: 50, auctionReveal: 50,
+  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30, sceneReveal: 45, auctionReveal: 50, horoscope: 60, ads: 60, headline: 60, favVote: 45, favWon: 12,
 };
 
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -71,12 +71,12 @@ function createRoom(usedInit, code) {
   const room = {
     code: code || newCode(), hostKey: rid(16), hostId: null,
     conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
-    settings: { drawing: true, items: true, scene: true, emoji: true, review: true, auction: true, pace: 1, remote: false },   // налаштування ведучого в лобі
+    settings: { drawing: true, items: true, scene: true, emoji: true, review: true, auction: true, horoscope: true, ads: true, headline: true, pace: 1, remote: false },   // налаштування ведучого в лобі
     chat: [], chatSeq: 0, chatAt: new Map(), lastRounds: [],   // чат кімнати (останні 80 повідомлень)
     history: [],                                                 // архів партій кімнати (останні 30)
   };
   // темп впливає на ігрові етапи, а не на показ результатів і не на 30 с шпигуна
-  const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene', 'review', 'auction'];
+  const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene', 'review', 'auction', 'horoscope', 'ads', 'headline'];
   const T = k => Math.round(SEC[k] * (PACED.includes(k) ? room.settings.pace : 1));
 
   let players = [];            // { id, token, name, alive, char }
@@ -154,7 +154,7 @@ function createRoom(usedInit, code) {
   // тож вона не збивається, навіть якщо кімнату створили заново чи сервер перезапустився.
   // Додаткові раунди: щогри випадково 2 різні з увімкнених — один після імен, другий перед голосуванням.
   // Раунди з минулої партії по змозі не повторюються.
-  const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'review', 'auction'];
+  const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'review', 'auction', 'horoscope', 'ads', 'headline'];
   // Раунди обираються випадково; раунди минулої партії не повторюються, поки є з чого обрати інші.
   function pickRounds() {
     const on = ROUNDS.filter(k => room.settings[k] !== false);
@@ -179,9 +179,9 @@ function createRoom(usedInit, code) {
     const k = (S.slots || [])[i];
     if (!k) return i === 0 ? toQuestions() : toVote();
     S.extra = k;
-    if (k === 'emoji') toEmoji(); else if (k === 'review') toReview(); else if (k === 'auction') toAuction(); else startExtra();
+    if (k === 'emoji') toEmoji(); else if (k === 'review') toReview(); else if (k === 'auction') toAuction(); else if (TEXT_KINDS.includes(k)) toText(k); else startExtra();
   }
-  function roundDone() { if (S.slot === 0) toQuestions(); else toVote(); }
+  function roundDone() { S.stage = ''; if (S.slot === 0) toQuestions(); else toVote(); }
 
   // сцена: 20 нейтральних наліпок-емодзі, ставиш 1–5, крутиш, збільшуєш, домальовуєш
   function toScene() {
@@ -196,9 +196,23 @@ function createRoom(usedInit, code) {
   function toEmoji() { S.phase = 'emoji'; S.sub = {}; setTimer(T('emoji'), revealEmoji); }
   function revealEmoji() { S.emojis = { ...S.sub }; S.sub = {}; S.phase = 'emojiReveal'; setTimer(T('emojiReveal'), roundDone); }
   // відгук: кожен пише короткий відгук на локацію (не називаючи її) і ставить зірки
+  const TEXT_KINDS = ['horoscope', 'ads', 'headline'];
+  const TEXT_MAX = { horoscope: 140, ads: 120, headline: 100 };
+  const FAV_PHASES = ['reviewReveal', ...TEXT_KINDS.map(k => k + 'Reveal')];
   function toReview() { S.phase = 'review'; S.sub = {}; setTimer(T('review'), revealReview); }
-  function revealReview() { S.reviews = { ...S.sub }; S.sub = {}; S.phase = 'reviewReveal'; setTimer(T('reviewReveal'), roundDone); }
-
+  function revealReview() { S.reviews = { ...S.sub }; S.sub = {}; toFav('reviewReveal'); }
+  // текстові раунди (гороскоп, оголошення, заголовок): пишуть, показ, потім усі обирають найкращий запис
+  function toText(k) { S.phase = k; S.sub = {}; setTimer(T(k), () => revealText(k)); }
+  function revealText(k) { S.texts = { ...S.sub }; S.sub = {}; toFav(k + 'Reveal'); }
+  function toFav(phase) { S.phase = phase; S.stage = 'vote'; S.fav = {}; S.favWin = []; setTimer(T('favVote'), finishFav); }
+  function finishFav() {
+    const cnt = {};
+    for (const t of Object.values(S.fav)) cnt[t] = (cnt[t] || 0) + 1;
+    const max = Math.max(0, ...Object.values(cnt));
+    S.favWin = max ? Object.keys(cnt).filter(k => cnt[k] === max) : [];
+    S.favCount = cnt; S.stage = 'won'; setTimer(T('favWon'), roundDone);
+  }
+  const favTimeout = () => (S.stage === 'vote' ? finishFav() : roundDone());
   // аукціон: 100 монет на 6 предметів (2 справжні від локації + 4 від інших локацій теми), ставки таємні до показу
   function toAuction() {
     const mine = (LOC_ITEMS[S.location] || []).slice(0, 2);
@@ -362,6 +376,8 @@ function createRoom(usedInit, code) {
       case 'words': if (alive().every(x => S.sub[x.id])) revealWords(); break;
       case 'emoji': if (alive().every(x => S.sub[x.id])) revealEmoji(); break;
       case 'review': if (alive().every(x => S.sub[x.id])) revealReview(); break;
+      case 'horoscope': case 'ads': case 'headline': if (alive().every(x => S.sub[x.id])) revealText(S.phase); break;
+      case 'reviewReveal': case 'horoscopeReveal': case 'adsReveal': case 'headlineReveal': if (S.stage === 'vote' && alive().every(x => S.fav[x.id])) finishFav(); break;
       case 'auction': if (alive().every(x => S.sub[x.id])) revealAuction(); break;
       case 'scene': if (alive().every(x => S.sub[x.id])) revealScene(); break;
       case 'vote': if (alive().every(x => S.votes[x.id])) tally(); break;
@@ -383,7 +399,8 @@ function createRoom(usedInit, code) {
       case 'emoji': return revealEmoji();
       case 'emojiReveal': return roundDone();
       case 'review': return revealReview();
-      case 'reviewReveal': return roundDone();
+      case 'horoscope': case 'ads': case 'headline': return revealText(S.phase);
+      case 'reviewReveal': case 'horoscopeReveal': case 'adsReveal': case 'headlineReveal': return favTimeout();
       case 'auction': return revealAuction();
       case 'auctionReveal': return roundDone();
       case 'scene': return revealScene();
@@ -496,6 +513,22 @@ function createRoom(usedInit, code) {
         if (alive().every(x => S.sub[x.id])) revealReview();
         return {};
       }
+      case 'text': {
+        if (!TEXT_KINDS.includes(S.phase) || !p || !p.alive) return {};
+        const t = String(b.text || '').trim().slice(0, TEXT_MAX[S.phase]);
+        if (!t) return { error: 'Напиши текст' };
+        S.sub[id] = t;
+        if (alive().every(x => S.sub[x.id])) revealText(S.phase);
+        return {};
+      }
+      case 'fav': {
+        if (!FAV_PHASES.includes(S.phase) || S.stage !== 'vote' || !p || !p.alive) return {};
+        const t = String(b.target || ''), ent = (S.phase === 'reviewReveal' ? S.reviews : S.texts) || {};
+        if (t === id || !ent[t]) return { error: 'Обери чужий запис' };
+        S.fav[id] = t;
+        if (alive().every(x => S.fav[x.id])) finishFav();
+        return {};
+      }
       case 'bid': {
         const bids = Array.isArray(b.bids) ? b.bids.map(x => Math.max(0, Math.floor(+x) || 0)) : [];
         if (S.phase !== 'auction' || !p || !p.alive || S.sub[id]) return {};
@@ -543,7 +576,7 @@ function createRoom(usedInit, code) {
         if (b.action === 'settings') {
           if (S.phase !== 'lobby' && S.phase !== 'end') return { error: 'Налаштування — лише між партіями' };
           const n = b.settings || {}, st = room.settings;
-          for (const k of ['drawing', 'items', 'scene', 'emoji', 'review', 'auction', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
+          for (const k of ['drawing', 'items', 'scene', 'emoji', 'review', 'auction', 'horoscope', 'ads', 'headline', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
           if ([0.67, 1, 1.5].includes(n.pace)) st.pace = n.pace;
           return {};
         }
@@ -572,7 +605,7 @@ function createRoom(usedInit, code) {
       settings: room.settings,
       done: [],
     };
-    if (['roles', 'names', 'drawing', 'words', 'emoji', 'scene', 'review', 'auction'].includes(ph)) v.done = Object.keys(S.sub || {});
+    if (['roles', 'names', 'drawing', 'words', 'emoji', 'scene', 'review', 'auction', ...TEXT_KINDS].includes(ph)) v.done = Object.keys(S.sub || {});
     if (ph === 'scene') v.stickers = S.stickers;
     if (ph === 'sceneReveal') v.scenes = S.scenes;
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
@@ -580,6 +613,8 @@ function createRoom(usedInit, code) {
     if (ph === 'verdict') { v.done = Object.keys(S.verdict); v.guess = S.guess; v.guessBy = S.guessBy; }
     if (ph === 'emojiReveal') v.emojis = S.emojis;
     if (ph === 'reviewReveal') v.reviews = S.reviews;
+    if (TEXT_KINDS.some(k => ph === k + 'Reveal')) v.texts = S.texts;
+    if (FAV_PHASES.includes(ph)) { v.stage = S.stage; v.done = Object.keys(S.fav || {}); if (S.stage === 'won') { v.favWin = S.favWin; v.favCount = S.favCount; } }
     if (ph === 'auction' || ph === 'auctionReveal') v.lots = S.lots;
     if (ph === 'auctionReveal') v.bids = S.bids;
     if (ph === 'names') { v.order = S.order; v.idx = S.idx; v.named = S.sub; }
@@ -611,6 +646,7 @@ function createRoom(usedInit, code) {
         partnerIn: amSpy && S.spyIds.some(x => x !== p.id && byId(x) && byId(x).alive),
         location: inGame && !amSpy ? S.location : null,
         mine: S.sub ? S.sub[p.id] || null : null,
+        favPick: FAV_PHASES.includes(ph) && S.fav ? S.fav[p.id] || null : null,
         vote: S.votes ? S.votes[p.id] || null : null,
         verdict: S.verdict && p.id in S.verdict ? S.verdict[p.id] : null,
       };
@@ -629,7 +665,7 @@ function createRoom(usedInit, code) {
     roles: toNames, names: nextName, namesReveal: afterNames, questions: nextAsk,
     drawing: revealDrawings, drawReveal: roundDone, items: itemsTimeout, itemsDone: roundDone,
     emoji: revealEmoji, emojiReveal: roundDone,
-    review: revealReview, reviewReveal: roundDone, auction: revealAuction, auctionReveal: roundDone,
+    review: revealReview, reviewReveal: favTimeout, horoscope: () => revealText('horoscope'), horoscopeReveal: favTimeout, ads: () => revealText('ads'), adsReveal: favTimeout, headline: () => revealText('headline'), headlineReveal: favTimeout, auction: revealAuction, auctionReveal: roundDone,
     scene: revealScene, sceneReveal: roundDone,
     vote: tally, voteResult: toGuess,
     guess: afterGuess, verdict: finishVerdict, words: revealWords, wordsReveal: () => toVote(),

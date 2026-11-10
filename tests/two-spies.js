@@ -6,7 +6,7 @@ const as = (id, b) => post({ token: TOK[id], ...b });
 const sse = (q, cb) => http.get(BASE + '/events?' + q, res => { let buf = ''; res.on('data', c => { buf += c; let i; while ((i = buf.indexOf('\n\n')) >= 0) { const ev = buf.slice(0, i); buf = buf.slice(i + 2); const m = ev.match(/^data: (.*)$/m); if (m) { const o = JSON.parse(m[1]); if (o.phase) cb(o); } } }); });
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const assert = (c, m) => { console.log((c ? 'ok: ' : 'FAIL: ') + m); if (!c) process.exitCode = 1; };
-const RND = ['drawing', 'drawReveal', 'items', 'itemsDone', 'scene', 'sceneReveal', 'emoji', 'emojiReveal', 'clock', 'clockReveal', 'notes', 'notesReveal', 'review', 'auction'];
+const RND = ['drawing', 'drawReveal', 'items', 'itemsDone', 'scene', 'sceneReveal', 'emoji', 'emojiReveal', 'clock', 'clockReveal', 'notes', 'notesReveal', 'review', 'auction', 'horoscope', 'horoscopeReveal', 'ads', 'adsReveal', 'headline', 'headlineReveal', 'reviewReveal', 'auctionReveal'];
 (async () => {
   const c = await post({ action: 'create', name: 'Іван', used: [] }); ROOM = c.room; TOK[c.id] = c.token; sse(`room=${ROOM}&t=${c.token}`, v => V[c.id] = v);
   const ids = [c.id];

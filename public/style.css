@@ -636,18 +636,14 @@ body.reconnecting::before { content: "Друкарня перезапускає�
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
 
-/* відгуки */
-.reviews { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.review { padding: 14px 14px 16px; animation: paste .5s var(--pop) both; }
-.review .who { display: flex; align-items: center; gap: 8px; font: 700 15px var(--head); text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 6px; }
-.review .who .av { width: 26px; height: 26px; font-size: 12px; box-shadow: none; }
+/* відгуки та текстові рубрики */
 .stars { font: 22px/1 var(--body); letter-spacing: .08em; color: var(--accent); margin: 8px 0 4px; }
 .stars i { font-style: normal; color: rgba(42, 33, 23, .22); }
-.review p { font: italic 17px/1.35 var(--body); margin: 4px 0 0; overflow-wrap: anywhere; }
+.fv p { font: italic 17px/1.35 var(--body); margin: 4px 0 0; overflow-wrap: anywhere; }
 .starpick { display: flex; justify-content: center; gap: 6px; margin: 4px 0 10px; }
 .starpick button { font-size: 38px; line-height: 1; background: none; border: 0; color: rgba(42, 33, 23, .25); padding: 2px 4px; cursor: pointer; }
 .starpick button.on { color: var(--accent); transform: scale(1.08); }
-.tv .review p { font-size: 24px; } .tv .stars { font-size: 30px; } .tv .reviews { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.tv .fv p { font-size: 24px; } .tv .stars { font-size: 30px; } .tv .fav { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); } .tv .hl { font-size: 32px; }
 /* аукціон */
 .bidbar { text-align: center; font: 700 15px var(--mono); text-transform: uppercase; letter-spacing: .08em; margin: 4px 0 10px; }
 .bidbar b { font: 700 38px var(--head); color: var(--accent); display: inline-block; margin-right: 6px; }
@@ -669,3 +665,17 @@ body.reconnecting::before { content: "Друкарня перезапускає�
 .lots-tv { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 18px; font: 700 22px var(--head); text-transform: uppercase; }
 .lots-tv i { font: 36px var(--emo); margin-right: 8px; }
 .tv .auc .ac { font-size: 28px; padding: 12px 2px; } .tv .auc .an { font-size: 20px; } .tv .auc .al small { font-size: 14px; } .tv .auc .al .e { font-size: 38px; }
+.fav { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-top: 8px; }
+.fv { position: relative; padding: 14px 14px 18px; animation: paste .5s var(--pop) both; }
+.fv .who { display: flex; align-items: center; gap: 8px; font: 700 15px var(--head); text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 6px; }
+.fv .who .av { width: 26px; height: 26px; font-size: 12px; box-shadow: none; }
+.fv .by { font: 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; margin-top: 8px; opacity: .75; }
+.fv.tap { cursor: pointer; transition: transform .15s; } .fv.tap:active { transform: scale(.98); }
+.fv.picked { outline: 3px solid var(--accent); outline-offset: 2px; }
+.fv.win { background: #e8d08c; box-shadow: 0 0 0 3px var(--accent), 0 8px 18px rgba(0, 0, 0, .3); }
+.fcount { position: absolute; right: 10px; bottom: 6px; font: 700 14px var(--mono); color: var(--accent); }
+.fstamp { position: absolute; right: -6px; top: -12px; transform: rotate(8deg); font-size: 12px; }
+.hs { font: 700 18px var(--head); text-transform: uppercase; color: var(--accent); border-bottom: 1px dotted var(--ink); padding-bottom: 4px; }
+.ad-head { font: 700 12px var(--mono); letter-spacing: .2em; text-align: center; text-transform: uppercase; border-bottom: 2px double var(--ink); padding-bottom: 5px; }
+.kind-ads .fv { border: 3px double var(--ink); }
+.hl { font: 700 24px/1.1 var(--head); text-transform: uppercase; margin: 2px 0 0; overflow-wrap: anywhere; }

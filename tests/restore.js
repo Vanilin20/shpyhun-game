@@ -11,7 +11,7 @@ let srv; const up = () => { srv = spawn('node', ['server.js'], { env: { ...proce
   const c = await post({ action: 'create', name: 'Іван', used: [] }); const room = c.room; const P = [c];
   for (const n of ['Оля', 'Петро', 'Марта']) P.push(await post({ room, action: 'join', name: n }));
   for (const p of P) await get(room, p.token);
-  await post({ room, token: c.token, action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false } });
+  await post({ room, token: c.token, action: 'settings', settings: { drawing: false, items: false, scene: false, emoji: true, review: false, auction: false, horoscope: false, ads: false, headline: false } });
   await post({ room, token: c.token, action: 'start' });
   for (const p of P) await post({ room, token: p.token, action: 'ready' });
   for (let _k = 0; _k < 12; _k++) for (const p of P) await post({ room, token: p.token, action: 'name', text: 'Агент ' + p.id.slice(0, 2) });
