@@ -258,6 +258,32 @@ const R = {
         <span class="cn">${n ? esc(n) : i === st.idx ? 'вигадує…' : '·  ·  ·'}</span></div>`; }).join('')}</div>`;
   },
   // архів номерів: історія партій кімнати
+  // питання й відповідь текстом (режим «на відстані»)
+  qa(st, noWait = false) {
+    const q = st.qa || {}, cur = st.order[st.idx];
+    if (!q.q) return '';
+    return `<div class="qa"><div class="bub q"><span class="who">${esc(dn(R.P(st, cur)))} питає</span>${esc(q.q)}</div>
+      ${q.a ? `<div class="bub a"><span class="who">${esc(dn(R.P(st, st.target)))} відповідає</span>${esc(q.a)}</div>` : noWait ? '' : `<div class="bub a wait"><span class="who">${esc(dn(R.P(st, st.target)))}</span>пише відповідь…</div>`}</div>`;
+  },
+  // таблиця очок між партіями
+  scores(st) {
+    const ps = st.players.slice().sort((a, b) => b.score - a.score);
+    if (!ps.some(p => p.score)) return '';
+    const g = (st.end && st.end.gain) || {};
+    return `<div class="scores"><div class="sec-head"><span>Таблиця рахунку</span>${st.amHost ? '<button class="linkbtn" data-reset>скинути</button>' : ''}</div>${ps.map((p, i) => `
+      <div class="srow" style="--i:${i}">${i === 0 && p.score > (ps[1] ? ps[1].score : 0) ? '<span class="rk">♛</span>' : `<span class="rk">${i + 1}</span>`}
+        <span class="nm">${esc(p.name)}</span><span class="lead"></span>${g[p.id] ? `<span class="gain">+${g[p.id]}</span>` : ''}<b>${p.score}</b></div>`).join('')}</div>`;
+  },
+  // історія голосувань у кінці партії
+  votes(st) {
+    const e = st.end, log = (e && e.votes) || [];
+    if (!log.length) return '';
+    const who = id => esc(dn(R.P(st, id)));
+    return `<div class="votelog">${log.map((r, i) => `
+      <div class="chron"><div class="sec-head"><span>Хроніка голосування № ${r.no}${r.revote ? ' · переголосування' : ''}</span></div>
+        <div class="vgrid">${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}</div>
+        <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — <span class="hit">шпигун</span>' : ' — мирний'}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
+  },
   history(st, meName) {
     const h = st.history || [];
     if (!h.length) return '';
