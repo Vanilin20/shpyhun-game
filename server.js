@@ -73,6 +73,7 @@ function createRoom(usedInit, code) {
     conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
     settings: { drawing: true, items: true, scene: true, emoji: true, clock: true, notes: true, pace: 1, remote: false },   // налаштування ведучого в лобі
     chat: [], chatSeq: 0, chatAt: new Map(), lastRounds: [],   // чат кімнати (останні 80 повідомлень)
+    history: [],                                                 // архів партій кімнати (останні 30)
   };
   // темп впливає на ігрові етапи, а не на показ результатів і не на 30 с шпигуна
   const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene', 'clock', 'notesAsk', 'notesAnswer'];
@@ -184,7 +185,7 @@ function createRoom(usedInit, code) {
   }
   function roundDone() { if (S.slot === 0) toQuestions(); else toVote(); }
 
-  // сцена: 20 наліпок-емодзі (8 від локацій теми + 12 випадкових), ставиш 1–5, крутиш, збільшуєш, домальовуєш
+  // сцена: 20 наліпок-емодзі (до 12 від локацій теми + випадкові), ставиш 1–5, крутиш, збільшуєш, домальовуєш
   function toScene() {
     const themed = (THEMES[S.theme] || []).flatMap(l => (LOC_ITEMS[l] || []).map(x => x[0]));
     const seen = new Set(themed);
@@ -227,10 +228,13 @@ function createRoom(usedInit, code) {
     else if (S.extra === 'scene') toScene();
     else {
       S.phase = 'items';
-      // 8 предметів від усіх 4 локацій теми + 4 випадкові: пов'язані з місцем, але не видають, з яким саме
-      const themed = (THEMES[S.theme] || []).flatMap(l => LOC_ITEMS[l] || []);
-      const names = new Set(themed.map(x => x[1]));
-      const extra = shuffle(ITEMS.filter(x => !names.has(x[1]))).slice(0, Math.max(0, 12 - themed.length));
+      // 12 предметів: 2 від справжньої локації, 7 від інших локацій теми, 3 випадкові —
+      // пов'язані з місцем, але не видають, з яким саме
+      const mine = LOC_ITEMS[S.location] || [];
+      const others = shuffle((THEMES[S.theme] || []).filter(l => l !== S.location).flatMap(l => LOC_ITEMS[l] || []));
+      const seen = new Set(mine.map(x => x[1]));
+      const themed = mine.concat(others.filter(x => !seen.has(x[1]) && (seen.add(x[1]), true)).slice(0, 7));
+      const extra = shuffle(ITEMS.filter(x => !seen.has(x[1]))).slice(0, Math.max(0, 12 - themed.length));
       S.items = shuffle(themed.concat(extra)).slice(0, 12).map(([e, n]) => ({ e, n, by: null }));
       S.order = shuffle(alive().map(p => p.id)); S.idx = 0;
       startPick();
@@ -327,6 +331,11 @@ function createRoom(usedInit, code) {
     const gain = {};
     for (const p of players) if (!p.left && isSpy(p.id) === (winner === 'spy')) { gain[p.id] = winner === 'spy' ? 2 : 1; p.score = (p.score || 0) + gain[p.id]; }
     S.win = { winner, reason, gain };
+    // архів номерів: що це була за партія
+    const nm = id => { const p = byId(id); return p ? p.name : '?'; };
+    room.history.unshift({ n: (room.history[0] ? room.history[0].n : 0) + 1, theme: S.theme, loc: S.location, spies: S.spyIds.map(nm), winner, reason,
+      guess: S.guess || '', guessBy: S.guessBy ? nm(S.guessBy) : '', out: (S.voteLog || []).filter(r => r.out).map(r => nm(r.out)), rounds: (S.slots || []).filter(Boolean), players: players.filter(p => !p.left).length, at: Date.now() });
+    room.history = room.history.slice(0, 30);
   }
   function toLobby() { clearTimer(); S = { phase: 'lobby' }; players = players.filter(p => !p.left); players.forEach(p => { p.alive = true; p.char = ''; }); }
 
@@ -604,6 +613,7 @@ function createRoom(usedInit, code) {
     if (ph === 'drawReveal') v.drawings = S.drawings;
     if (ph === 'voteResult') v.res = S.res;
     if (ph === 'wordsReveal') v.words = S.words;
+    if (ph === 'lobby' || ph === 'end') v.history = room.history;
     if (ph === 'end') v.end = { ...S.win, votes: S.voteLog || [], location: S.location, spyIds: S.spyIds, guess: S.guess || '', guessBy: S.guessBy || null, tally: S.win.reason === 'guessed' || S.win.reason === 'wrong' ? S.tally : null };
 
     const amHost = isScreenHost || (p && p.id === room.hostId);
@@ -640,7 +650,7 @@ function createRoom(usedInit, code) {
     const s = { ...S };
     if (s.phase === 'drawing' || s.phase === 'scene') s.sub = {};
     delete s.drawings; delete s.scenes;                                   // малюнки важкі — їх не зберігаємо
-    return { code: room.code, hostKey: room.hostKey, hostId: room.hostId, settings: room.settings, chat: room.chat, chatSeq: room.chatSeq, lastRounds: room.lastRounds, players, S: s, used: [...used], lastTheme, t: Date.now() };
+    return { code: room.code, hostKey: room.hostKey, hostId: room.hostId, settings: room.settings, chat: room.chat, chatSeq: room.chatSeq, lastRounds: room.lastRounds, history: room.history, players, S: s, used: [...used], lastTheme, t: Date.now() };
   }
   const TIMEOUT = {
     roles: toNames, names: nextName, namesReveal: afterNames, questions: nextAsk,
@@ -651,7 +661,7 @@ function createRoom(usedInit, code) {
     guess: afterGuess, verdict: finishVerdict, words: revealWords, wordsReveal: () => toVote(),
   };
   function restore(d) {
-    room.hostKey = d.hostKey; room.hostId = d.hostId; lastTheme = d.lastTheme; if (d.settings) room.settings = d.settings; if (d.chat) { room.chat = d.chat; room.chatSeq = d.chatSeq || 0; } room.lastRounds = d.lastRounds || [];
+    room.hostKey = d.hostKey; room.hostId = d.hostId; lastTheme = d.lastTheme; if (d.settings) room.settings = d.settings; if (d.chat) { room.chat = d.chat; room.chatSeq = d.chatSeq || 0; } room.lastRounds = d.lastRounds || []; room.history = d.history || [];
     players = d.players; S = d.S;
     if (S.phase === 'drawReveal') S.drawings = {};
     if (S.phase === 'sceneReveal') S.scenes = {};

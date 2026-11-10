@@ -96,6 +96,7 @@ function view() {
             ${s.amHost ? `<button class="x" data-kick="${p.id}" aria-label="Прибрати">${ICON.close}</button>` : ''}</div>`).join('') : '<p class="fine">Поки нікого… Чекаємо перших агентів.</p>'}</div></section>
           ${R.settings(s)}
           ${R.scores(s)}
+          ${R.history(s)}
           <button class="linkbtn" id="soundBtn" style="justify-self:start">${Sound.on ? ICON.sound + 'Звук увімкнено' : ICON.mute + 'Звук вимкнено'}</button>
         </div></div>`;
     }

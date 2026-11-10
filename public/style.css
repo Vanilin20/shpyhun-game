@@ -327,6 +327,25 @@ details.rules li::marker { font: 700 13px var(--head); }
 .srow .gain { font: 700 13px var(--mono); color: var(--accent); animation: thump .5s var(--pop) both .6s; }
 .srow b { font: 700 18px var(--mono); min-width: 22px; text-align: right; }
 
+/* архів номерів */
+details.archive { border-top: 3px double var(--ink); border-bottom: 1px solid var(--ink); padding: 4px 0; }
+details.archive summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 40px; }
+details.archive summary::-webkit-details-marker { display: none; }
+details.archive summary span { font: 700 13px var(--head); letter-spacing: .12em; text-transform: uppercase; }
+details.archive summary span::before { content: "☞ "; color: var(--accent); }
+details.archive[open] summary span::before { content: "☟ "; }
+details.archive summary small { font: 10px var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+.arch-list { display: grid; gap: 0; padding: 4px 0 6px; }
+.arch-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 6px 0; border-bottom: 1px dotted var(--ink-faint); animation: slidein .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
+.arch-n { font: 700 11px var(--mono); border: 1px solid var(--ink); padding: 2px 5px; }
+.arch-main, .arch-who { display: grid; min-width: 0; }
+.arch-main b { font: 700 15px/1.1 var(--disp); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arch-main small, .arch-who small { font: 9px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+.arch-who { text-align: right; } .arch-who b { font: 700 12px var(--head); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+.arch-res { display: grid; text-align: right; font: 700 10px/1.2 var(--head); letter-spacing: .08em; text-transform: uppercase; color: var(--green); }
+.arch-res small { font: italic 10px var(--body); text-transform: none; letter-spacing: 0; color: var(--ink-soft); }
+.tv .arch-main b { font-size: 20px; } .tv .arch-who b { font-size: 15px; max-width: 220px; } .tv .arch-res { font-size: 13px; }
+
 /* ---------- імена й картки ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 .card { animation: paste .5s var(--pop) both; }

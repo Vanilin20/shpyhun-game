@@ -408,12 +408,13 @@ function screenHtml() {
         </section>
         ${R.settings(s)}
         ${R.scores(s)}
+        ${R.history(s)}
         ${notice()}
         ${s.amHost ? (n < 3 ? `<p class="muted center">Потрібно ще ${3 - n} ${3 - n === 1 ? 'гравець' : 'гравці'}, щоб почати.</p>` : '')
                    : `<div class="waiting">Чекаємо, поки <b>${esc(host.name)}</b> відкриє засідання</div>`}
         ${RULES}
         <p class="fine center">Є ноутбук чи ТВ? Відкрий на ньому <b>${esc(location.host)}/screen</b> і введи код <b>${esc(s.code)}</b> — там буде видно все разом.</p>
-        <div class="row links"><button class="linkbtn" id="soundBtn">${Sound.on ? ICON.sound + 'Звук увімкнено' : ICON.mute + 'Звук вимкнено'}</button>
+        <div class="row links"><button class="linkbtn" id="soundBtn">${Sound.on ? ICON.sound + 'Звук увімкнено' : ICON.mute + 'Звук вимкнено'}</button>${Sound.on ? '<button class="linkbtn" id="soundTest">Перевірити звук</button>' : ''}
         <button class="linkbtn" id="leaveBtn">${ICON.door}Вийти з кімнати</button></div>`;
     }
     case 'roles':
@@ -663,6 +664,7 @@ function bind() {
   main.querySelectorAll('[data-kick]').forEach(b => b.onclick = () => api('kick', { target: b.dataset.kick }));
   R.bindSettings(main, st, api);
   if ($('#soundBtn')) $('#soundBtn').onclick = () => { Sound.toggle(); lastKey = ''; render(); };
+  if ($('#soundTest')) $('#soundTest').onclick = () => { Sound.test(); setTimeout(() => toast(Sound.running ? 'Має бути чути. Перевір гучність і беззвучний режим' : 'Браузер заблокував звук — торкнись екрана ще раз'), 150); };
   R.bindZoom(main);
   if (st.phase === 'roles') holdToReveal(main.querySelector('.dossier'));
   if ($('#leaveBtn')) $('#leaveBtn').onclick = leave;

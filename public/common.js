@@ -323,6 +323,19 @@ const R = {
         <div class="vgrid">${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}</div>
         <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — <span class="hit">шпигун</span>' : ' — мирний'}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
   },
+  // архів номерів: історія партій кімнати
+  history(st, meName) {
+    const h = st.history || [];
+    if (!h.length) return '';
+    const WIN = { spy: 'шпигун утік', civ: 'шпигуна викрито' };
+    return `<details class="archive"><summary><span>Архів номерів · ${h.length}</span><small>хто був шпигуном</small></summary>
+      <div class="arch-list">${h.map((g, i) => `<div class="arch-row ${g.winner === 'spy' ? 'spy' : ''}" style="--i:${i}">
+        <span class="arch-n">№ ${g.n}</span>
+        <span class="arch-main"><b>${esc(g.loc)}</b><small>${esc(g.theme)} · ${g.players} гравців</small></span>
+        <span class="arch-who"><small>${g.spies.length > 1 ? 'шпигуни' : 'шпигун'}</small><b>${g.spies.map(esc).join(', ')}</b></span>
+        <span class="arch-res ${g.winner === 'spy' ? 'hit' : ''}">${g.winner === 'spy' ? (g.spies.length > 1 ? 'шпигуни втекли' : 'шпигун утік') : 'викрито'}${g.guess ? `<small>«${esc(g.guess)}»</small>` : ''}</span>
+      </div>`).join('')}</div></details>`;
+  },
   // плакат «Розшукується» (голосування)
   poster(st, p, { tag = 'div', sel = false, attr = '', stamp = '', i = 0 } = {}) {
     const letter = ([...dn(p).trim()][0] || '?').toUpperCase();
@@ -366,38 +379,43 @@ function confetti() {
 }
 function toast(t) { const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 2200); }
 // ---------- звуки (Web Audio, без файлів): друкарська машинка, папір, печатка, друкарня ----------
+// Усе зведено в діапазон 300–5000 Гц — нижче динамік телефона просто не відтворює.
 const Sound = (() => {
-  let ctx = null, on = store.get('spy_sound') !== false, unlocked = false, nbuf = null, lastKey = 0;
+  let ctx = null, master = null, on = store.get('spy_sound') !== false, nbuf = null, lastKey = 0;
   // iPhone: без цього Web Audio мовчить, коли увімкнено беззвучний режим
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
-  function unlock() {
+  function make() {
+    if (ctx) return;
     try {
-      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state !== 'running') ctx.resume();
-      if (!unlocked) {   // тихий звук прямо в жесті — так браузер «відкриває» аудіо
-        const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource();
-        src.buffer = b; src.connect(ctx.destination); src.start(0);
-        unlocked = true;
-      }
-    } catch (e) {}
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      // компресор + загальна гучність: на телефоні тихі звуки інакше губляться
+      const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = .003; comp.release.value = .15;
+      master = ctx.createGain(); master.gain.value = 1.6; master.connect(comp); comp.connect(ctx.destination);
+    } catch (e) { ctx = null; }
   }
-  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) addEventListener(ev, unlock, { passive: true, capture: true });
+  // Android/iOS дозволяють звук лише після жесту — ловимо перший дотик і «відкриваємо» контекст у ньому
+  function unlock() {
+    make(); if (!ctx) return;
+    if (ctx.state !== 'running') ctx.resume().catch(() => {});
+    try { const b = ctx.createBuffer(1, 1, 22050), src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination); src.start(0); } catch (e) {}
+  }
+  for (const ev of ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown']) addEventListener(ev, unlock, { passive: true, capture: true });
   document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx && ctx.state !== 'running') ctx.resume().catch(() => {}); });
   function ready() {
     if (!on) return false;
-    if (!ctx) { unlock(); if (!ctx) return false; }
+    make(); if (!ctx) return false;
     if (ctx.state !== 'running') ctx.resume().catch(() => {});
     return true;
   }
-  // тони: [частота, коли, тривалість, форма, гучність]
+  // тони: [частота, коли, тривалість, форма, гучність, частота в кінці]
   function play(notes) {
     if (!ready()) return;
     const t = ctx.currentTime + .02;
-    for (const [f, at, dur, type = 'sine', vol = .35, f2] of notes) {
+    for (const [f, at, dur, type = 'sine', vol = .5, f2] of notes) {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type; o.frequency.setValueAtTime(f, t + at); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + at + dur);
-      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + .01); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
-      o.connect(g); g.connect(ctx.destination); o.start(t + at); o.stop(t + at + dur + .05);
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + .008); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      o.connect(g); g.connect(master); o.start(t + at); o.stop(t + at + dur + .05);
     }
     Sound.played = (Sound.played || 0) + 1;
   }
@@ -409,29 +427,32 @@ const Sound = (() => {
     for (const [at, dur, vol, f, type = 'bandpass', q = 1] of parts) {
       const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
       s.buffer = nbuf; fl.type = type; fl.frequency.value = f; fl.Q.value = q;
-      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + Math.min(.012, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
-      s.connect(fl); fl.connect(g); g.connect(ctx.destination); s.start(t + at, Math.random() * .5); s.stop(t + at + dur + .05);
+      g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(vol, t + at + Math.min(.01, dur / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + at + dur);
+      s.connect(fl); fl.connect(g); g.connect(master); s.start(t + at, Math.random() * .5); s.stop(t + at + dur + .05);
     }
     Sound.played = (Sound.played || 0) + 1;
   }
   const Sound = {
     get on() { return on; },
-    toggle() { on = !on; store.set('spy_sound', on); unlock(); if (on) this.turn(); return on; },
+    // чи реально звучить (для підказки користувачу)
+    get running() { return !!ctx && ctx.state === 'running'; },
+    toggle() { on = !on; store.set('spy_sound', on); unlock(); if (on) this.test(); return on; },
+    test() { this.turn(); setTimeout(() => this.stamp(), 450); },
     // твоя черга: дзвіночок друкарської машинки
-    turn() { noise([[0, .09, .25, 1800, 'bandpass', .8]]); play([[2093, .06, .9, 'sine', .22], [4186, .06, .4, 'sine', .07]]); },
-    // час вийшов: два удари будильника
-    timeUp() { play([[880, 0, .12, 'square', .12], [660, .14, .12, 'square', .12], [880, .32, .12, 'square', .12], [660, .46, .3, 'square', .12]]); },
-    tick() { noise([[0, .03, .3, 3200, 'highpass']]); play([[1500, 0, .03, 'square', .05]]); },        // останні секунди
-    reveal() { this.paper(); play([[784, .12, .5, 'sine', .14], [1175, .2, .7, 'sine', .1]]); },      // розкриття
-    chat() { noise([[0, .05, .2, 2400, 'bandpass', 2]]); play([[1320, 0, .09, 'sine', .12]]); },
+    turn() { noise([[0, .08, .5, 2200, 'bandpass', 1]]); play([[2093, .04, .9, 'sine', .6], [4186, .04, .5, 'sine', .18], [2637, .3, .5, 'sine', .25]]); },
+    // час вийшов: дзвінок будильника
+    timeUp() { const n = []; for (let i = 0; i < 8; i++) n.push([i % 2 ? 1760 : 1480, i * .07, .06, 'square', .18]); n.push([1480, .6, .35, 'square', .18]); play(n); },
+    tick() { noise([[0, .025, .6, 3600, 'bandpass', 2]]); play([[1800, 0, .035, 'square', .14]]); },        // останні секунди
+    reveal() { this.paper(); play([[784, .12, .4, 'triangle', .35], [1175, .22, .6, 'triangle', .3], [1568, .34, .7, 'sine', .25]]); },      // розкриття
+    chat() { noise([[0, .04, .4, 2600, 'bandpass', 2]]); play([[1320, 0, .08, 'sine', .3], [1760, .08, .12, 'sine', .25]]); },
     // шелест сторінки
-    paper() { noise([[0, .16, .16, 4200, 'bandpass', .6], [.07, .22, .12, 2600, 'bandpass', .5], [.2, .12, .08, 5200, 'bandpass', .7]]); },
-    // удар печатки
-    stamp() { noise([[0, .14, .55, 320, 'lowpass', .7], [0, .05, .3, 1600, 'bandpass', 1]]); play([[120, 0, .16, 'sine', .45, 55]]); },
+    paper() { noise([[0, .14, .55, 3800, 'bandpass', .5], [.06, .2, .45, 2400, 'bandpass', .4], [.18, .14, .35, 5000, 'bandpass', .6]]); },
+    // удар печатки: глухий «бух» + клац
+    stamp() { noise([[0, .12, .9, 420, 'lowpass', .8], [0, .04, .6, 1800, 'bandpass', 1]]); play([[520, 0, .14, 'triangle', .7, 160]]); },
     // клавіша друкарської машинки
-    key() { const n = performance.now(); if (n - lastKey < 35) return; lastKey = n; noise([[0, .035, .22, 2800 + Math.random() * 900, 'bandpass', 1.4]]); play([[180, 0, .04, 'square', .05]]); },
-    // друкарський верстат: ритмічні удари + шелест
-    press() { const p = []; for (let i = 0; i < 5; i++) p.push([i * .16, .1, .4, 260, 'lowpass', .8], [i * .16 + .05, .07, .12, 3000, 'bandpass', .8]); noise(p); this.paper(); setTimeout(() => this.stamp(), 900); },
+    key() { const n = performance.now(); if (n - lastKey < 35) return; lastKey = n; noise([[0, .03, .55, 3000 + Math.random() * 900, 'bandpass', 1.4]]); play([[900, 0, .03, 'square', .12]]); },
+    // друкарський верстат: ритмічні удари + шелест, наприкінці печатка
+    press() { const p = []; for (let i = 0; i < 5; i++) p.push([i * .16, .09, .8, 480, 'lowpass', .8], [i * .16 + .05, .06, .4, 3200, 'bandpass', .8]); noise(p); this.paper(); setTimeout(() => this.stamp(), 900); },
   };
   // друк у полях — клацання машинки
   addEventListener('input', e => { if (e.target.matches && e.target.matches('input[type=text], textarea') && e.inputType !== 'deleteContentBackward') Sound.key(); }, true);
