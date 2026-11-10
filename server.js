@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { exec } = require('child_process');
-const { THEMES, ITEMS, LOC_ITEMS, CLOCK_HOURS, CLOCK_SPANS, THEME_FIT, fits } = require('./data');
+const { THEMES, ITEMS, LOC_ITEMS, THEME_FIT } = require('./data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
@@ -46,9 +46,9 @@ const SEC = {
   question: 120,                      // одне питання й відповідь (допит іде по колу)
   drawing: 70, itemPick: 25, explain: 120,
   vote: 45, guess: 30, verdict: 45, words: 40, emoji: 120,
-  scene: 100, clock: 60, notesAsk: 60, notesAnswer: 60,
+  scene: 100, notesAsk: 60, notesAnswer: 60,
   // показ результатів (ведучий може натиснути «Далі» раніше)
-  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30, sceneReveal: 45, clockReveal: 40, notesReveal: 50,
+  namesReveal: 25, drawReveal: 45, itemsDone: 15, voteResult: 12, wordsReveal: 25, emojiReveal: 30, sceneReveal: 45, notesReveal: 50,
 };
 
 const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
@@ -71,12 +71,12 @@ function createRoom(usedInit, code) {
   const room = {
     code: code || newCode(), hostKey: rid(16), hostId: null,
     conns: new Set(), online: new Map(), polled: new Map(), lastActive: Date.now(), hostOffSince: 0,
-    settings: { drawing: true, items: true, scene: true, emoji: true, clock: true, notes: true, pace: 1, remote: false },   // налаштування ведучого в лобі
+    settings: { drawing: true, items: true, scene: true, emoji: true, notes: true, pace: 1, remote: false },   // налаштування ведучого в лобі
     chat: [], chatSeq: 0, chatAt: new Map(), lastRounds: [],   // чат кімнати (останні 80 повідомлень)
     history: [],                                                 // архів партій кімнати (останні 30)
   };
   // темп впливає на ігрові етапи, а не на показ результатів і не на 30 с шпигуна
-  const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene', 'clock', 'notesAsk', 'notesAnswer'];
+  const PACED = ['nameTurn', 'question', 'drawing', 'itemPick', 'explain', 'emoji', 'words', 'vote', 'scene', 'notesAsk', 'notesAnswer'];
   const T = k => Math.round(SEC[k] * (PACED.includes(k) ? room.settings.pace : 1));
 
   let players = [];            // { id, token, name, alive, char }
@@ -154,7 +154,7 @@ function createRoom(usedInit, code) {
   // тож вона не збивається, навіть якщо кімнату створили заново чи сервер перезапустився.
   // Додаткові раунди: щогри випадково 2 різні з увімкнених — один після імен, другий перед голосуванням.
   // Раунди з минулої партії по змозі не повторюються.
-  const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes'];
+  const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'notes'];
   // вага раунду для теми (THEME_FIT): підходящі випадають частіше, вага 0 — ніколи.
   // Раунди минулої партії не повторюються, поки є з чого обрати інші.
   function pickRounds() {
@@ -181,7 +181,7 @@ function createRoom(usedInit, code) {
     const k = (S.slots || [])[i];
     if (!k) return i === 0 ? toQuestions() : toVote();
     S.extra = k;
-    if (k === 'emoji') toEmoji(); else if (k === 'clock') toClock(); else if (k === 'notes') toNotes(); else startExtra();
+    if (k === 'emoji') toEmoji(); else if (k === 'notes') toNotes(); else startExtra();
   }
   function roundDone() { if (S.slot === 0) toQuestions(); else toVote(); }
 
@@ -194,16 +194,6 @@ function createRoom(usedInit, code) {
     S.phase = 'scene'; S.sub = {}; setTimer(T('scene'), revealScene);
   }
   function revealScene() { S.scenes = { ...S.sub }; S.sub = {}; S.phase = 'sceneReveal'; setTimer(T('sceneReveal'), roundDone); }
-
-  // годинник: 2 питання «о котрій» + 1 «скільки часу»
-  function toClock() {
-    const hours = CLOCK_HOURS.filter(([, n]) => fits(n, S.theme)), spans = CLOCK_SPANS.filter(([, n]) => fits(n, S.theme));
-    // спершу — питання саме під цю тему, щоб не крутилися ті самі загальні
-    const pickQ = (list, k) => shuffle(list.filter(x => x[1])).concat(shuffle(list.filter(x => !x[1]))).slice(0, k).map(x => x[0]);
-    S.cq = shuffle(pickQ(hours, 2)).map(q => ({ q, t: 'h' })).concat(pickQ(spans, 1).map(q => ({ q, t: 'd' })));
-    S.phase = 'clock'; S.sub = {}; setTimer(T('clock'), revealClock);
-  }
-  function revealClock() { S.clockAns = { ...S.sub }; S.sub = {}; S.phase = 'clockReveal'; setTimer(T('clockReveal'), roundDone); }
 
   // анонімні записки: кожен пише питання, воно йде іншому гравцю, той анонімно відповідає
   function toNotes() { S.phase = 'notes'; S.stage = 'ask'; S.sub = {}; S.notes = []; setTimer(T('notesAsk'), notesToAnswer); }
@@ -380,7 +370,6 @@ function createRoom(usedInit, code) {
       case 'words': if (alive().every(x => S.sub[x.id])) revealWords(); break;
       case 'emoji': if (alive().every(x => S.sub[x.id])) revealEmoji(); break;
       case 'scene': if (alive().every(x => S.sub[x.id])) revealScene(); break;
-      case 'clock': if (alive().every(x => S.sub[x.id])) revealClock(); break;
       case 'notes':
         if (S.stage === 'ask' && alive().every(x => S.sub[x.id])) notesToAnswer();
         else if (S.stage === 'answer' && S.notes.every(x => x.a || !byId(x.to) || !byId(x.to).alive)) revealNotes();
@@ -405,8 +394,6 @@ function createRoom(usedInit, code) {
       case 'emojiReveal': return roundDone();
       case 'scene': return revealScene();
       case 'sceneReveal': return roundDone();
-      case 'clock': return revealClock();
-      case 'clockReveal': return roundDone();
       case 'notes': return S.stage === 'ask' ? notesToAnswer() : revealNotes();
       case 'notesReveal': return roundDone();
       case 'vote': return tally();
@@ -492,13 +479,6 @@ function createRoom(usedInit, code) {
           if (alive().every(x => S.sub[x.id])) revealScene();
         }
         return {};
-      case 'clock': {
-        const a = Array.isArray(b.ans) ? b.ans : [];
-        const ok = S.phase === 'clock' && p && p.alive && a.length === 3 && S.cq.every((c, i) =>
-          Number.isFinite(a[i]) && (c.t === 'h' ? a[i] >= 0 && a[i] < 24 : a[i] >= 0 && a[i] <= 7));
-        if (ok) { S.sub[id] = a.map((x, i) => S.cq[i].t === 'h' ? Math.round(x * 2) / 2 : Math.round(x)); if (alive().every(x => S.sub[x.id])) revealClock(); }
-        return {};
-      }
       case 'note': {
         const t = String(b.text || '').trim().slice(0, 160);
         if (S.phase !== 'notes' || !p || !p.alive || !t) return {};
@@ -565,7 +545,7 @@ function createRoom(usedInit, code) {
         if (b.action === 'settings') {
           if (S.phase !== 'lobby' && S.phase !== 'end') return { error: 'Налаштування — лише між партіями' };
           const n = b.settings || {}, st = room.settings;
-          for (const k of ['drawing', 'items', 'scene', 'emoji', 'clock', 'notes', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
+          for (const k of ['drawing', 'items', 'scene', 'emoji', 'notes', 'remote']) if (typeof n[k] === 'boolean') st[k] = n[k];
           if ([0.67, 1, 1.5].includes(n.pace)) st.pace = n.pace;
           return {};
         }
@@ -594,12 +574,10 @@ function createRoom(usedInit, code) {
       settings: room.settings,
       done: [],
     };
-    if (['roles', 'names', 'drawing', 'words', 'emoji', 'scene', 'clock'].includes(ph)) v.done = Object.keys(S.sub || {});
+    if (['roles', 'names', 'drawing', 'words', 'emoji', 'scene'].includes(ph)) v.done = Object.keys(S.sub || {});
     if (ph === 'notes') { v.stage = S.stage; v.done = S.stage === 'ask' ? Object.keys(S.sub) : S.notes.filter(n => n.a).map(n => n.to); }
     if (ph === 'scene') v.stickers = S.stickers;
     if (ph === 'sceneReveal') v.scenes = S.scenes;
-    if (ph === 'clock' || ph === 'clockReveal') v.cq = S.cq;
-    if (ph === 'clockReveal') v.clockAns = S.clockAns;
     if (ph === 'notesReveal') v.notes = S.notesOut;
     if (ph === 'vote') { v.done = Object.keys(S.votes); v.cands = S.cands; v.revote = !!S.revote; }
     if (ph === 'guess') v.done = guessers().filter(g => S.skips[g] || S.pending[g]);
@@ -656,7 +634,7 @@ function createRoom(usedInit, code) {
     roles: toNames, names: nextName, namesReveal: afterNames, questions: nextAsk,
     drawing: revealDrawings, drawReveal: roundDone, items: itemsTimeout, itemsDone: roundDone,
     emoji: revealEmoji, emojiReveal: roundDone,
-    scene: revealScene, sceneReveal: roundDone, clock: revealClock, clockReveal: roundDone,
+    scene: revealScene, sceneReveal: roundDone,
     notes: () => (S.stage === 'ask' ? notesToAnswer() : revealNotes()), notesReveal: roundDone, vote: tally, voteResult: toGuess,
     guess: afterGuess, verdict: finishVerdict, words: revealWords, wordsReveal: () => toVote(),
   };

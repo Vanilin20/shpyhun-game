@@ -88,7 +88,7 @@ const RULES = `<details class="rules"><summary><span>Правила гри</span
   <li>Усі бачать <b>тему й локацію</b>, шпигун — лише <b>тему</b>.</li>
   <li><b>Імена по колу:</b> по черзі кожен вигадує персонажа з натяком на локацію — і бачить імена тих, хто вже назвався.</li>
   <li><b>Допит по колу:</b> кожен питає наступного гравця вголос — 2 хвилини на питання.</li>
-    <li><b>Два випадкові раунди</b> щогри — один після імен, другий перед голосуванням: малювання, предмети, сцена з наліпок, три емодзі, годинник або анонімні записки.</li>
+    <li><b>Два випадкові раунди</b> щогри — один після імен, другий перед голосуванням: малювання, предмети, сцена з наліпок, три емодзі або анонімні записки.</li>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
   <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Кожен окремо може назвати локацію: помилився — вибуває лише він. Голосувань до трьох (перед третім — ще один випадковий раунд). Мирним треба вигнати обох.</li>
@@ -346,36 +346,6 @@ async function sendScene() {
   await api('scene', { img: sceneApi.data() });
 }
 
-// ---------- годинник: 24-годинний циферблат під пальцем ----------
-let clockAns = [];
-function setupClock() {
-  const box = $('#clockIn'); if (!box) return;
-  clockAns = st.cq.map(c => (c.t === 'h' ? null : 3));
-  const paint = () => {
-    st.cq.forEach((c, i) => {
-      const el = box.querySelector(`[data-ci="${i}"]`);
-      if (c.t === 'h') { el.querySelector('.dialbox').innerHTML = R.dial([], 240, clockAns[i]).replace('class="dial"', 'class="dial input"'); el.querySelector('.val').textContent = clockAns[i] == null ? '--:--' : R.hhmm(clockAns[i]); }
-      else el.querySelector('.val').textContent = R.SPANS[clockAns[i]];
-    });
-    $('#send').disabled = clockAns.some(x => x == null);
-  };
-  st.cq.forEach((c, i) => {
-    const el = box.querySelector(`[data-ci="${i}"]`);
-    if (c.t === 'h') {
-      const db = el.querySelector('.dialbox');
-      const set = e => {
-        const r = db.getBoundingClientRect(), x = e.clientX - r.left - r.width / 2, y = e.clientY - r.top - r.height / 2;
-        let a = Math.atan2(y, x) + Math.PI / 2; if (a < 0) a += 2 * Math.PI;
-        clockAns[i] = ((Math.round(a / (2 * Math.PI) * 48) + 24) % 48) / 2; paint();
-      };
-      db.onpointerdown = e => { db.setPointerCapture(e.pointerId); set(e); db.onpointermove = set; };
-      db.onpointerup = db.onpointercancel = () => { db.onpointermove = null; };
-    } else el.querySelector('input').oninput = e => { clockAns[i] = +e.target.value; paint(); };
-  });
-  paint();
-  $('#send').onclick = () => { if (clockAns.some(x => x == null)) return toast('Відповідай на всі 3 питання'); $('#send').disabled = true; api('clock', { ans: clockAns }); };
-}
-
 async function sendDrawing() {
   if (drawSent || !canvasApi) return;
   drawSent = true;
@@ -505,17 +475,6 @@ function screenHtml() {
         <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
     case 'sceneReveal':
       return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
-    case 'clock':
-      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші відповідають…')}`;
-      if (m.mine) return `${R.phaseTag(s)}${wait('Відповіді здано. Чекаємо інших…')}`;
-      return `${R.phaseTag(s)}<h1>Годинник</h1>
-        <p class="muted">${m.isSpy ? 'Ти шпигун. Відповідай так, щоб не вибиватися з інших.' : 'Відповідай про цю локацію.'}</p>
-        <div id="clockIn" class="clocks">${s.cq.map((c, i) => `<div class="paper clock-in" data-ci="${i}" style="${rot(i)}"><div class="lbl">${esc(c.q)}</div>
-          ${c.t === 'h' ? '<div class="dialbox"></div><div class="val">--:--</div><p class="muted" style="margin:0;font-size:12px;color:#6b5f48">Тицяй або веди пальцем по циферблату (24 год)</p>'
-            : `<div class="val"></div><input type="range" min="0" max="7" step="1" value="3">`}</div>`).join('')}</div>
-        <button class="btn primary wide" id="send" disabled>Готово</button><div id="dots"></div>`;
-    case 'clockReveal':
-      return `${R.phaseTag(s)}<h1>Хто що відповів</h1>${R.clockReveal(s)}`;
     case 'notes': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть записки…')}`;
       if (s.stage === 'ask') {
@@ -585,7 +544,7 @@ function screenHtml() {
 }
 
 // ---------- кнопки ведучого ----------
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'clockReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'notesReveal', 'voteResult', 'wordsReveal'];
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';
@@ -679,7 +638,6 @@ function bind() {
   };
   if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); $('#send').onclick = sendDrawing; return; }
   if (st.phase === 'scene' && $('#sc')) { sceneApi = setupScene(); $('#send').onclick = sendScene; return; }
-  if (st.phase === 'clock' && $('#clockIn')) { setupClock(); return; }
   const btn = $('#send'), txt = $('#txt');
   if (btn && txt && st.phase === 'emoji') {
     const seg = new Intl.Segmenter('uk', { granularity: 'grapheme' });

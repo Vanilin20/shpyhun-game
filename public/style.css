@@ -488,33 +488,6 @@ canvas { display: block; width: 100%; aspect-ratio: 1; touch-action: none; }
 .emo-row span { display: grid; place-items: center; aspect-ratio: 1; font: clamp(26px, 9vw, 40px)/1 var(--emo); background: rgba(42, 33, 23, .06); overflow: hidden; }
 .big.emo, .val.emo { font: clamp(26px, 8vw, 40px)/1.2 var(--emo); white-space: nowrap; }
 
-/* годинник */
-.clocks { display: grid; gap: 16px; }
-.clockcard, .clock-in { display: grid; gap: 10px; justify-items: center; }
-.clockcard .lbl, .clock-in .lbl { justify-self: stretch; font: 700 14px/1.2 var(--head); letter-spacing: .04em; text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 4px; }
-.dial { max-width: 100%; height: auto; }
-.dial .face { fill: #f3e6c4; stroke: var(--ink); stroke-width: 3; }
-.dial .tk { stroke: rgba(42, 33, 23, .4); stroke-width: 1.5; } .dial .tk.big { stroke: var(--ink); stroke-width: 3; }
-.dial .hl { font: 700 15px var(--head); fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
-.dial .hl.sm { font-size: 16px; }
-.dial .hand { stroke: var(--accent); stroke-width: 5; stroke-linecap: round; }
-.dial .pin { fill: var(--accent); }
-.dial .ray { stroke: hsl(var(--h) 32% 30%); stroke-width: 2; opacity: .5; }
-.dial .mk { fill: hsl(var(--h) 32% 30%); stroke: #f3e6c4; stroke-width: 2; }
-.dial .mkt { font: 700 11px var(--head); fill: #f0dfb4; text-anchor: middle; dominant-baseline: central; }
-.dial.input { touch-action: none; cursor: pointer; }
-.clock-in .val { font: 700 32px var(--head); letter-spacing: .06em; margin: 0; }
-.clock-in input[type=range] { width: 100%; accent-color: var(--ink); }
-.crows { display: grid; gap: 4px; width: 100%; }
-.crow { display: flex; align-items: center; gap: 8px; font-size: 14px; border-bottom: 1px dotted var(--ink-faint); padding-bottom: 3px; }
-.crow span { flex: 1; } .crow b { font: 700 15px var(--mono); }
-.crow .av { flex: none; width: 26px; height: 26px; font-size: 12px; box-shadow: none; }
-.span-scale { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; width: 100%; align-items: end; }
-.span-scale .sp { display: grid; justify-items: center; gap: 4px; border-bottom: 3px solid var(--ink); padding-bottom: 4px; }
-.span-scale .sp span { font: 9px/1.1 var(--mono); text-align: center; min-height: 20px; }
-.span-scale .dots2 { display: grid; gap: 2px; justify-items: center; }
-.span-scale .av { width: 22px; height: 22px; font-size: 11px; box-shadow: none; }
-
 /* записки */
 .notes { display: grid; gap: 16px; }
 .note { display: grid; gap: 8px; }
@@ -632,7 +605,6 @@ body.reconnecting::before { content: "Друкарня перезапускає�
 .tv .bar { font-size: 22px; } .tv .bar .track { height: 32px; }
 .tv .nrow .cn { font-size: 30px; } .tv .nrow .pn { font-size: 15px; }
 .tv .note .nq { font-size: 26px; } .tv .note .na { font-size: 28px; }
-.tv .clocks { grid-template-columns: repeat(3, 1fr); }
 .tv .emo-row span { font-size: 46px; }
 .tv .vline { font-size: 18px; }
 .tv .wanted-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 24px; max-width: 1240px; width: 100%; margin: 0 auto; }

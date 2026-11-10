@@ -159,7 +159,7 @@ const PHASE_NAME = {
   roles: 'Досьє', names: 'Імена', namesReveal: 'Імена', questions: 'Допит', drawing: 'Малювання', drawReveal: 'Галерея',
   items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
   words: 'Одне слово', wordsReveal: 'Слова', end: 'Справу закрито',
-  scene: 'Сцена', sceneReveal: 'Сцени', clock: 'Годинник', clockReveal: 'Годинник', notes: 'Записки', notesReveal: 'Записки',
+  scene: 'Сцена', sceneReveal: 'Сцени', notes: 'Записки', notesReveal: 'Записки',
 };
 const rot = i => `--rot:${[-2.2, 1.6, -1, 2.4, -1.8, 1.1, -2.6, 1.9][i % 8]}deg`;
 
@@ -236,7 +236,7 @@ const R = {
     const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
     return `<div class="settings">
       <div class="sec-head"><span>Рубрики номера</span>${ed ? '<small>тисни, щоб увімкнути</small>' : ''}</div>
-      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}${chip('clock', 'Годинник')}${chip('notes', 'Записки')}</div>
+      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}${chip('notes', 'Записки')}</div>
       <p class="fine">Щогри випадково 2 різні з увімкнених: одна після імен, друга перед голосуванням.</p>
       <div class="sec-head"><span>Як граємо</span></div>
       <div class="chips"><button class="opt-chip ${s.remote ? '' : 'on'}" ${ed ? 'data-remote="0"' : 'disabled'}>Поруч — уголос</button>
@@ -256,72 +256,6 @@ const R = {
     return `<div class="namelist">${st.order.map((id, i) => { const p = R.P(st, id), n = named[id];
       return `<div class="nrow ${i === st.idx ? 'cur' : ''} ${n ? 'done' : ''}">${av(p)}<span class="pn">${esc(p.name)}</span>
         <span class="cn">${n ? esc(n) : i === st.idx ? 'вигадує…' : '·  ·  ·'}</span></div>`; }).join('')}</div>`;
-  },
-  // годинник: 24-годинний циферблат з мітками гравців / шкала тривалості
-  SPANS: ['5 хв', '15 хв', '30 хв', '1 год', '2 год', '4 год', 'пів дня', 'цілий день'],
-  hhmm: h => `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}`,
-  dial(marks, size = 240, hand = null) {
-    const c = size / 2, R0 = c - 26;
-    const ang = h => ((h - 12) / 24) * 2 * Math.PI - Math.PI / 2;   // полудень угорі, північ унизу
-    let svg = `<svg class="dial" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><circle cx="${c}" cy="${c}" r="${c - 4}" class="face"/>`;
-    for (let h = 0; h < 24; h++) {
-      const a = ang(h), big = h % 6 === 0, r1 = c - 6, r2 = c - (big ? 16 : 11);
-      svg += `<line x1="${c + r1 * Math.cos(a)}" y1="${c + r1 * Math.sin(a)}" x2="${c + r2 * Math.cos(a)}" y2="${c + r2 * Math.sin(a)}" class="${big ? 'tk big' : 'tk'}"/>`;
-      if (big) svg += `<text x="${c + (c - 30) * Math.cos(a)}" y="${c + (c - 30) * Math.sin(a)}" class="hl">${h}</text>`;
-    }
-    svg += `<text x="${c}" y="${c - 46}" class="hl sm">☀️</text><text x="${c}" y="${c + 50}" class="hl sm">🌙</text>`;
-    if (hand != null) { const a = ang(hand); svg += `<line x1="${c}" y1="${c}" x2="${c + R0 * .8 * Math.cos(a)}" y2="${c + R0 * .8 * Math.sin(a)}" class="hand"/><circle cx="${c}" cy="${c}" r="6" class="pin"/>`; }
-    // мітки гравців: однакові години — на різних радіусах
-    const at = {};
-    for (const m of marks) {
-      const k = m.h, n = at[k] = (at[k] || 0) + 1, a = ang(m.h), r = R0 - 30 - (n - 1) * 24;
-      svg += `<line x1="${c}" y1="${c}" x2="${c + r * Math.cos(a)}" y2="${c + r * Math.sin(a)}" class="ray" style="--h:${m.hue}"/>
-        <circle cx="${c + r * Math.cos(a)}" cy="${c + r * Math.sin(a)}" r="11" class="mk" style="--h:${m.hue}"/>
-        <text x="${c + r * Math.cos(a)}" y="${c + r * Math.sin(a)}" class="mkt">${esc(m.l)}</text>`;
-    }
-    return svg + '</svg>';
-  },
-  clockReveal(st) {
-    const ans = st.clockAns || {}, ps = R.alive(st).filter(p => ans[p.id]);
-    const letter = p => ([...dn(p).trim()][0] || '?').toUpperCase();
-    return `<div class="clocks">${st.cq.map((c, i) => {
-      const rows = ps.map(p => `<div class="crow">${av(p)}<span>${esc(dn(p))}</span><b>${c.t === 'h' ? R.hhmm(ans[p.id][i]) : R.SPANS[ans[p.id][i]]}</b></div>`).join('') || '<p class="muted">Ніхто не відповів</p>';
-      const pic = c.t === 'h'
-        ? R.dial(ps.map(p => ({ h: ans[p.id][i], hue: hueOf(p.name), l: letter(p) })))
-        : `<div class="span-scale">${R.SPANS.map((l, k) => `<div class="sp"><div class="dots2">${ps.filter(p => ans[p.id][i] === k).map(p => av(p)).join('')}</div><span>${l}</span></div>`).join('')}</div>`;
-      return `<div class="paper clockcard" style="${rot(i)}"><div class="lbl">${esc(c.q)}</div>${pic}<div class="crows">${rows}</div></div>`;
-    }).join('')}</div>`;
-  },
-  // анонімні записки
-  notes(st) {
-    return `<div class="notes">${(st.notes || []).map((n, i) => `<div class="paper note" style="${rot(i)};animation-delay:${i * .12}s">
-      <div class="nq">${esc(n.q)}</div><div class="na">${esc(n.a)}</div></div>`).join('') || '<p class="muted center">Записок нема</p>'}</div>`;
-  },
-  // питання й відповідь текстом (режим «на відстані»)
-  qa(st, noWait = false) {
-    const q = st.qa || {}, cur = st.order[st.idx];
-    if (!q.q) return '';
-    return `<div class="qa"><div class="bub q"><span class="who">${esc(dn(R.P(st, cur)))} питає</span>${esc(q.q)}</div>
-      ${q.a ? `<div class="bub a"><span class="who">${esc(dn(R.P(st, st.target)))} відповідає</span>${esc(q.a)}</div>` : noWait ? '' : `<div class="bub a wait"><span class="who">${esc(dn(R.P(st, st.target)))}</span>пише відповідь…</div>`}</div>`;
-  },
-  // таблиця очок між партіями
-  scores(st) {
-    const ps = st.players.slice().sort((a, b) => b.score - a.score);
-    if (!ps.some(p => p.score)) return '';
-    const g = (st.end && st.end.gain) || {};
-    return `<div class="scores"><div class="sec-head"><span>Таблиця рахунку</span>${st.amHost ? '<button class="linkbtn" data-reset>скинути</button>' : ''}</div>${ps.map((p, i) => `
-      <div class="srow" style="--i:${i}">${i === 0 && p.score > (ps[1] ? ps[1].score : 0) ? '<span class="rk">♛</span>' : `<span class="rk">${i + 1}</span>`}
-        <span class="nm">${esc(p.name)}</span><span class="lead"></span>${g[p.id] ? `<span class="gain">+${g[p.id]}</span>` : ''}<b>${p.score}</b></div>`).join('')}</div>`;
-  },
-  // історія голосувань у кінці партії
-  votes(st) {
-    const e = st.end, log = (e && e.votes) || [];
-    if (!log.length) return '';
-    const who = id => esc(dn(R.P(st, id)));
-    return `<div class="votelog">${log.map((r, i) => `
-      <div class="chron"><div class="sec-head"><span>Хроніка голосування № ${r.no}${r.revote ? ' · переголосування' : ''}</span></div>
-        <div class="vgrid">${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}</div>
-        <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — <span class="hit">шпигун</span>' : ' — мирний'}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
   },
   // архів номерів: історія партій кімнати
   history(st, meName) {

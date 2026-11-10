@@ -434,7 +434,7 @@ module.exports.LOC_ITEMS = LOC_ITEMS;
 
 // Годинник: «о котрій» — відповідь годиною доби; «скільки» — тривалістю
 // ===== Як тема «лягає» на раунди =====
-// Усе прив'язано до ТЕМИ, а не до локації: тему шпигун і так знає, тож вибір раундів і питань
+// Усе прив'язано до ТЕМИ, а не до локації: тему шпигун і так знає, тож вибір раундів
 // нічого йому не підказує. Мітка ставиться, лише якщо вона правдива для ВСІХ локацій теми.
 //   visit — туди звичайно приходять люди       crowd — буває натовп / година пік
 //   sched — у всіх є графік (відчиняється/зачиняється)   work — там хтось працює, є робочий день
@@ -443,81 +443,57 @@ module.exports.LOC_ITEMS = LOC_ITEMS;
 //   scary — там моторошно
 // Друге поле — вага раундів (1 за замовчуванням, 0 — раунд для теми не випадає).
 const THEME_FIT = {
-  'Туризм':        ['visit crowd', { clock: .9 }],
-  'Послуги':       ['visit crowd sched work wait', { clock: 1.5 }],
-  'Розваги':       ['visit crowd sched work', { clock: 1.3 }],
-  'Природа':       ['far long', { clock: .4, drawing: 1.4, scene: 1.2 }],
-  'Спорт':         ['visit crowd sched work', { clock: 1.3 }],
-  'Транспорт':     ['crowd wait', { clock: .9, drawing: 1.2 }],
-  'Медицина':      ['work wait sched', { clock: 1.2 }],
-  'Їжа':           ['work visit', { clock: .9, drawing: 1.2 }],
-  'Освіта':        ['visit crowd sched work wait', { clock: 1.5 }],
+  'Туризм':        ['visit crowd', {}],
+  'Послуги':       ['visit crowd sched work wait', {}],
+  'Розваги':       ['visit crowd sched work', {}],
+  'Природа':       ['far long', { drawing: 1.4, scene: 1.2 }],
+  'Спорт':         ['visit crowd sched work', {}],
+  'Транспорт':     ['crowd wait', { drawing: 1.2 }],
+  'Медицина':      ['work wait sched', {}],
+  'Їжа':           ['work visit', { drawing: 1.2 }],
+  'Освіта':        ['visit crowd sched work wait', {}],
   'Робота':        ['work sched', {}],
-  'Гроші':         ['work sched', { clock: 1.0 }],
+  'Гроші':         ['work sched', {}],
   'Закон':         ['work wait', {}],
-  'Історія':       ['visit crowd', { clock: .9, drawing: 1.4, scene: 1.2 }],
+  'Історія':       ['visit crowd', { drawing: 1.4, scene: 1.2 }],
   'Мистецтво':     ['visit work', {}],
-  'Техніка':       ['visit work sched', { clock: 1.2 }],
-  'Вода':          ['visit', { clock: .9, drawing: 1.3 }],
-  'Холод':         ['visit', { clock: .8 }],
+  'Техніка':       ['visit work sched', {}],
+  'Вода':          ['visit', { drawing: 1.3 }],
+  'Холод':         ['visit', {}],
   'Діти':          ['visit crowd work', {}],
-  'Свята':         ['visit crowd event', { clock: 1.2, drawing: .6, scene: .8 }],
+  'Свята':         ['visit crowd event', { drawing: .6, scene: .8 }],
   'Будинок':       ['visit', { drawing: 1.2 }],
   'Місто':         ['crowd', { drawing: 1.2 }],
   'Відпочинок':    ['visit', {}],
   'Подорожі':      ['crowd wait', {}],
-  'Армія':         ['scary', { clock: .6 }],
-  'Небезпека':     ['scary', { clock: .6 }],
+  'Армія':         ['scary', {}],
+  'Небезпека':     ['scary', {}],
   'Страх':         ['visit scary', {}],
-  'Магазини':      ['visit crowd sched work wait', { clock: 1.5 }],
-  'Краса':         ['visit work wait sched', { clock: 1.3 }],
-  'Наука':         ['visit work', { clock: .8, drawing: 1.2 }],
+  'Магазини':      ['visit crowd sched work wait', {}],
+  'Краса':         ['visit work wait sched', {}],
+  'Наука':         ['visit work', { drawing: 1.2 }],
   'Тварини':       ['visit work', {}],
-  'Море':          ['far', { clock: .5, drawing: 1.3, scene: 1.2 }],
-  'Космос':        ['far long', { clock: .3, drawing: 1.4, scene: 1.2 }],
+  'Море':          ['far', { drawing: 1.3, scene: 1.2 }],
+  'Космос':        ['far long', { drawing: 1.4, scene: 1.2 }],
   'Музика':        ['visit', {}],
-  'Напої':         ['visit work sched', { clock: 1.3 }],
-  'Дорога':        ['visit work wait', { clock: 1.3 }],
-  'Ігри':          ['visit sched work', { clock: 1.3 }],
+  'Напої':         ['visit work sched', {}],
+  'Дорога':        ['visit work wait', {}],
+  'Ігри':          ['visit sched work', {}],
   'Зима':          ['visit', {}],
-  'Школа':         ['visit crowd sched work', { clock: 1.5 }],
-  'Бізнес':        ['visit work wait sched', { clock: 1.2, drawing: .6, scene: .8 }],
-  'Виробництво':   ['work sched', { clock: 1.3 }],
-  'Кохання':       ['visit wait', { clock: 1.2, drawing: .7 }],
-  'Ремонт':        ['visit work sched', { clock: 1.4 }],
-  'Підземелля':    ['scary', { clock: .7, drawing: 1.2 }],
-  'Спека':         ['far', { clock: .8 }],
+  'Школа':         ['visit crowd sched work', {}],
+  'Бізнес':        ['visit work wait sched', { drawing: .6, scene: .8 }],
+  'Виробництво':   ['work sched', {}],
+  'Кохання':       ['visit wait', { drawing: .7 }],
+  'Ремонт':        ['visit work sched', {}],
+  'Підземелля':    ['scary', { drawing: 1.2 }],
+  'Спека':         ['far', {}],
   'Висота':        ['visit', { drawing: 1.3 }],
-  'Занедбане':     ['scary', { clock: .7, drawing: 1.2 }],
-  'Ніч':           ['visit', { clock: .9 }],
-  'Село':          ['visit work', { clock: .9, drawing: 1.2 }],
-  'Пошта і преса': ['visit work sched wait', { clock: 1.4 }],
-  'Готель':        ['visit work wait', { clock: 1.1 }],
+  'Занедбане':     ['scary', { drawing: 1.2 }],
+  'Ніч':           ['visit', {}],
+  'Село':          ['visit work', { drawing: 1.2 }],
+  'Пошта і преса': ['visit work sched wait', {}],
+  'Готель':        ['visit work wait', {}],
 };
 
-// Питання годинника: [текст, потрібна мітка теми або '' — підходить усім]
-const CLOCK_HOURS = [
-  ['О котрій тут найтихіше?', ''], ['О котрій тут найкраще бути?', ''], ['О котрій сюди краще не потикатися?', ''], ['О котрій тут найстрашніше?', 'scary'],
-  ['О котрій тут час пік?', 'crowd'], ['О котрій тут найбільше людей?', 'crowd'],
-  ['О котрій сюди найчастіше приходять?', 'visit'],
-  ['О котрій тут усе зачиняється?', 'sched'], ['О котрій тут відчиняються?', 'sched'],
-  ['О котрій тут починається робочий день?', 'work'], ['О котрій тут найбільше роботи?', 'work'],
-  ['О котрій тут усе починається?', 'event'],
-];
-// «Скільки часу»: шкала від 5 хв до цілого дня, тож питання про довгі речі відсікаються мітками long/far
-const CLOCK_SPANS = [
-  ['Скільки часу треба, щоб тут усе роздивитися?', ''], ['Скільки триває найцікавіше, що тут буває?', ''],
-  ['Скільки часу тут можна витримати?', '!long'],
-  ['Скільки часу тут зазвичай проводять?', 'visit !long'],
-  ['Скільки тут доводиться чекати?', 'wait'],
-  ['Скільки часу сюди добиратися?', 'visit !far'],
-];
-// чи підходить питання темі: усі мітки мають бути, а «!мітка» — відсутня
-function fits(need, theme) {
-  const tags = ((THEME_FIT[theme] || [''])[0] || '').split(' ');
-  return need.split(' ').filter(Boolean).every(t => t[0] === '!' ? !tags.includes(t.slice(1)) : tags.includes(t));
-}
 module.exports.THEME_FIT = THEME_FIT;
-module.exports.CLOCK_HOURS = CLOCK_HOURS;
-module.exports.CLOCK_SPANS = CLOCK_SPANS;
-module.exports.fits = fits;
+
