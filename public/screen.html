@@ -104,7 +104,7 @@ function view() {
     case 'names': return `${R.phaseTag(s, `Імена · ${Math.min(s.idx + 1, s.order.length)} з ${s.order.length}`)}<h1>Хто ви сьогодні?</h1>
       <div style="max-width:800px;width:100%;margin:0 auto">${R.namelist(s)}</div>`;
     case 'namesReveal': return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
-    case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.duel(s)}
+    case 'questions': return `${R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`)}${R.pauseBanner(s)}${R.duel(s)}
       ${s.settings.remote ? (R.qa(s) ? `<div style="max-width:900px;width:100%;margin:0 auto">${R.qa(s)}</div>` : '<p class="muted center" style="font-size:20px">Пишеться питання…</p>') : '<p class="muted center" style="font-size:20px">Питання й відповідь — уголос. До 2 хвилин.</p>'}${R.order(s)}`;
     case 'drawing': return `<div class="tv-wait"><h1 class="headline">${ransom('Художники', 64)}<span>Малюємо локацію</span><small>Потім усі малюнки з'являться тут.</small></h1></div>`;
     case 'drawReveal': return `${R.phaseTag(s)}<h1>Галерея доказів</h1>${R.gallery(s)}`;
@@ -155,7 +155,7 @@ function actions() {
   if (st.phase === 'end') return `<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start"><span class="star">★</span>Новий номер</button>`;
   if (REVEAL.includes(st.phase)) return `<button class="btn primary" data-host="next">Далі →</button>`;
   if (st.phase === 'verdict') return '';
-  return `<button class="btn ghost red small" data-host="next">${['questions', 'items', 'names'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
+  return `${['questions', 'items'].includes(st.phase) && st.stage !== 'pick' ? R.hostCtl(st) : ''}<button class="btn ghost red small" data-host="next">${['questions', 'items', 'names'].includes(st.phase) ? 'Пропустити хід' : 'Не чекати'}</button>`;
 }
 
 function render() {
@@ -163,7 +163,7 @@ function render() {
   $('#codeChip').textContent = s.code;
   $('#themeChip').textContent = s.theme ? `❧ Рубрика: ${s.theme} ❧` : '❧ Збір товариства ❧';
   $('#stripL').textContent = PHASE_NAME[s.phase] || 'Вечірній випуск';
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.qa, s.named, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
+  const key = JSON.stringify([s.paused, s.pausedLeft, s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.qa, s.named, s.notice, s.voteNo, s.items, s.res, s.end, urlIdx, s.amHost, s.settings, s.players.map(p => p.score), Sound.on,
     s.players.map(p => [p.id, p.name, p.char, p.alive, s.phase === 'lobby' && p.online]), s.drawings ? Object.keys(s.drawings) : 0, s.scenes ? Object.keys(s.scenes) : 0, s.stage]);
   if (key !== lastKey) {
     lastKey = key;
@@ -183,7 +183,7 @@ function render() {
   const a = actions();
   $('#foot').hidden = !foot && !a;
   $('#foot').innerHTML = foot + (a ? `<div class="actions">${a}</div>` : '');
-  $('#foot').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; act(b.dataset.host, b.dataset.host === 'next' ? { ph: st.phase, stg: st.stage || '' } : {}); });
+  $('#foot').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; act(b.dataset.host, b.dataset.host === 'next' ? { ph: st.phase, stg: st.stage || '' } : {}); if (!['next', 'start', 'lobby'].includes(b.dataset.host)) setTimeout(() => { b.disabled = false; }, 700); });
   Timer.tick();
 }
 

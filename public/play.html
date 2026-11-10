@@ -51,11 +51,22 @@ function shareLink() {
   return base + '?r=' + (st ? st.code : '');
 }
 
+// ---------- список моїх кімнат (на першому екрані) ----------
+const myRooms = () => (store.get('spy_rooms') || []).filter(x => x && x.room && x.token);
+function rememberRoom(ses, host) {
+  const old = myRooms().find(x => x.room === ses.room);
+  const list = myRooms().filter(x => x.room !== ses.room);
+  list.unshift({ room: ses.room, token: ses.token, id: ses.id, host: host != null ? !!host : !!(old && old.host), at: Date.now() });
+  store.set('spy_rooms', list.slice(0, 8));
+}
+function forgetRoom(code) { store.set('spy_rooms', myRooms().filter(x => x.room !== code)); }
+const PH_LABEL = { lobby: 'збираються', end: 'партія закінчилась' };
+
 // ---------- вхід ----------
 async function boot() {
   if (SES && SES.room && (!urlRoom || urlRoom === SES.room)) {
     const ex = await fetch(`/exists?room=${SES.room}&t=${SES.token}`).then(r => r.json()).catch(() => null);
-    if (ex && ex.ok && ex.player) return enter();
+    if (ex && ex.ok && ex.player) { rememberRoom(SES); return enter(); }
     if (!ex) return home("Немає зв'язку з сервером. Онови сторінку.");
     store.set('spy_session', null); SES = null;
   }
@@ -68,12 +79,16 @@ function enter() {
   history.replaceState(null, '', '/?r=' + SES.room);
   live = Live({
     room: SES.room, token: SES.token, onState,
-    onNoRoom: () => { store.set('spy_session', null); SES = null; live = null; history.replaceState(null, '', '/'); home('Цієї кімнати вже немає. Створи нову або введи інший код.'); },
+    onNoRoom: () => { if (SES) forgetRoom(SES.room); store.set('spy_session', null); SES = null; live = null; history.replaceState(null, '', '/'); home('Цієї кімнати вже немає. Створи нову або введи інший код.'); },
   });
+}
+function goHome() {   // на перший екран без виходу з кімнати: кімната лишається у списку «Мої кімнати»
+  if (live) live.stop(); live = null; store.set('spy_session', null); SES = null; st = null;
+  history.replaceState(null, '', '/'); home();
 }
 function leave() {
   if (st && !['lobby', 'end'].includes(st.phase) && !confirm('Вийти з гри? Ти вибуваєш із цієї партії.' + (st.amHost ? ' Ведучим стане інший гравець.' : ''))) return;
-  api('leave');
+  api('leave'); if (SES) forgetRoom(SES.room);
   if (live) { live.forget(); live.stop(); } live = null;
   store.set('spy_session', null); SES = null; st = null;
   history.replaceState(null, '', '/');
@@ -113,6 +128,7 @@ function home(msg) {
         <button class="btn" id="joinBtn">Увійти</button>
       </div>
     </section>
+        <section class="myrooms" id="myrooms" hidden></section>
     ${RULES}
     <a class="linkbtn center" href="/screen">Є ноутбук чи ТВ? Відкрий великий екран →</a>
   </div>`;
@@ -122,7 +138,7 @@ function home(msg) {
     $('#createBtn').disabled = true;
     const r = await postApi({ action: 'create', name: n, used: store.get('spy_used') || [] });
     if (r.error || !r.token) { $('#createBtn').disabled = false; return toast(r.error || 'Не вдалося створити кімнату'); }
-    SES = { room: r.room, token: r.token, id: r.id }; store.set('spy_session', SES); enter();
+    SES = { room: r.room, token: r.token, id: r.id }; store.set('spy_session', SES); rememberRoom(SES, true); enter();
   };
   const join = async () => {
     const code = $('#codeIn').value.toUpperCase().replace(/[^A-Z]/g, '');
@@ -133,11 +149,26 @@ function home(msg) {
   $('#joinBtn').onclick = join;
   $('#codeIn').oninput = e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-ZА-ЯІЇЄҐ]/gi, ''); };
   $('#codeIn').onkeydown = e => { if (e.key === 'Enter') join(); };
+  loadMyRooms();
+}
+async function loadMyRooms() {
+  const box = $('#myrooms'); if (!box) return;
+  const list = myRooms(); if (!list.length) return;
+  const res = await Promise.all(list.map(x => fetch(`/exists?room=${x.room}&t=${x.token}`).then(r => r.json()).then(j => ({ x, j })).catch(() => ({ x, j: null }))));
+  if (!$('#myrooms')) return;
+  const alive = res.filter(r => r.j === null || (r.j.ok && r.j.player));
+  store.set('spy_rooms', alive.map(r => r.x));
+  if (!alive.length) return;
+  box.hidden = false;
+  box.innerHTML = `<h2 class="sec-title">Мої кімнати</h2>` + alive.map(({ x, j }) => `
+    <div class="mroom"><button class="mr-go" data-room="${x.room}"><b class="mr-code">${x.room}</b><span>${x.host ? '♛ ти ведучий' : 'ти гравець'}${j && j.phase ? ' · ' + (PH_LABEL[j.phase] || 'йде гра') + ' · ' + j.n + ' гр.' : ''}</span><i>Повернутись →</i></button><button class="mr-x" data-del="${x.room}" aria-label="Забути кімнату">×</button></div>`).join('');
+  box.querySelectorAll('[data-room]').forEach(b => b.onclick = () => { const x = myRooms().find(y => y.room === b.dataset.room); if (!x) return; SES = { room: x.room, token: x.token, id: x.id }; store.set('spy_session', SES); enter(); });
+  box.querySelectorAll('[data-del]').forEach(b => b.onclick = () => { forgetRoom(b.dataset.del); b.closest('.mroom').remove(); if (!box.querySelector('.mroom')) box.hidden = true; });
 }
 async function doJoin(code, n) {
   const r = await postApi({ action: 'join', room: code, name: n });
   if (r.error) return r.noRoom ? home(r.error) : joinScreen(code, r.error);
-  SES = { room: code, token: r.token, id: r.id }; store.set('spy_session', SES); enter();
+  SES = { room: code, token: r.token, id: r.id }; store.set('spy_session', SES); rememberRoom(SES, false); enter();
 }
 function joinScreen(code, msg) {
   chrome(false); lastKey = 'join';
@@ -401,7 +432,7 @@ function screenHtml() {
         ${RULES}
         <p class="fine center">Є ноутбук чи ТВ? Відкрий на ньому <b>${esc(location.host)}/screen</b> і введи код <b>${esc(s.code)}</b> — там буде видно все разом.</p>
         <div class="row links"><button class="linkbtn" id="soundBtn">${Sound.on ? ICON.sound + 'Звук увімкнено' : ICON.mute + 'Звук вимкнено'}</button>${Sound.on ? '<button class="linkbtn" id="soundTest">Перевірити звук</button>' : ''}
-        <button class="linkbtn" id="leaveBtn">${ICON.door}Вийти з кімнати</button></div>`;
+        <button class="linkbtn" id="homeBtn">☰ Мої кімнати</button><button class="linkbtn" id="leaveBtn">${ICON.door}Вийти з кімнати</button></div>`;
     }
     case 'roles':
       return `${R.phaseTag(s, 'Етап I · Ролі')}<h1 class="headline">${ransom('Секретно!', 34)}<span>Пакет доставлено</span>
@@ -422,7 +453,7 @@ function screenHtml() {
     case 'namesReveal':
       return `${R.phaseTag(s)}<h1>Хто тут зібрався?</h1>${R.names(s)}`;
     case 'questions': {
-      const head = R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`);
+      const head = R.phaseTag(s, `Допит · ${s.idx + 1} з ${s.order.length}`) + R.pauseBanner(s);
       if (s.settings.remote) {
         const q = s.qa || {};
         if (cur === m.id && !q.q) return `${head}${R.duel(s, m.id)}<h1 class="center">Твоє питання для ${esc(dn(P(s.target)))}</h1>
@@ -574,8 +605,9 @@ function hostbarHtml() {
   if (s.phase === 'end') return `${tag}<button class="btn" data-host="lobby">У лобі</button><button class="btn primary" data-host="start"><span class="star">★</span>Новий номер</button>`;
   if (REVEAL.includes(s.phase)) return `${tag}<button class="btn primary" data-host="next">Далі →</button>`;
   if (s.phase === 'verdict') return '';   // рішення мирних не пропускається
+  const ctl = ['questions', 'items'].includes(s.phase) && s.stage !== 'pick' ? R.hostCtl(s) : '';
   const label = ['questions', 'items', 'names'].includes(s.phase) ? 'Пропустити хід' : 'Не чекати';
-  return `${tag}<button class="btn ghost red small" data-host="next">${label} →</button>`;
+  return `${ctl}${tag}<button class="btn ghost red small" data-host="next">${label} →</button>`;
 }
 
 // ---------- малювання екрана ----------
@@ -592,7 +624,7 @@ function render() {
   if (s.phase !== 'scene') { sceneSent = false; sceneApi = null; }
   if (['lobby', 'end'].includes(s.phase)) $('#overlay').hidden = true;
 
-  const key = JSON.stringify([s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, m.favPick, m.canGuess, m.guessed, s.settings, s.players.map(p => p.score), Sound.on,
+  const key = JSON.stringify([s.paused, s.pausedLeft, s.game, s.phase, s.stage, s.qi, s.idx, s.target, s.voteNo, s.notice, s.cands, s.hostId, s.amHost, m.alive, m.vote, m.verdict, !!m.mine, m.favPick, m.canGuess, m.guessed, s.settings, s.players.map(p => p.score), Sound.on,
     s.phase === 'lobby' ? s.players.map(p => [p.id, p.name, p.online]) : 0, s.phase === 'items' ? s.items.map(i => [i.by, i.txt]) : 0, s.qa, s.named, s.res, s.end && s.end.reason]);
   if (key !== lastKey) {
     const keepFocus = document.activeElement && document.activeElement.id === 'txt' && lastKey && JSON.parse(lastKey)[1] === s.phase;
@@ -620,7 +652,7 @@ function render() {
   const hk = hb + [s.game, s.phase, s.stage, s.qi, s.idx].join();   // новий хід — кнопка знову активна
   if (hb && $('#hostbar .inner').dataset.k !== hk) {
     $('#hostbar .inner').dataset.k = hk; $('#hostbar .inner').innerHTML = hb;
-    $('#hostbar').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.host, b.dataset.host === 'next' ? { ph: st.phase, stg: st.stage || '' } : {}); });
+    $('#hostbar').querySelectorAll('[data-host]').forEach(b => b.onclick = () => { b.disabled = true; api(b.dataset.host, b.dataset.host === 'next' ? { ph: st.phase, stg: st.stage || '' } : {}); if (!['next', 'start', 'lobby'].includes(b.dataset.host)) setTimeout(() => { b.disabled = false; }, 700); });
   }
   // вібрація, коли твій хід
   const cur = s.order ? s.order[s.idx] : null;
@@ -645,6 +677,7 @@ function bind() {
   R.bindZoom(main);
   if (st.phase === 'roles') holdToReveal(main.querySelector('.dossier'));
   if ($('#leaveBtn')) $('#leaveBtn').onclick = leave;
+  if ($('#homeBtn')) $('#homeBtn').onclick = goHome;
   if ($('#copyBtn')) $('#copyBtn').onclick = () => {
     const link = shareLink();
     (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast('Посилання скопійовано')).catch(() => prompt('Скопіюй посилання:', link));

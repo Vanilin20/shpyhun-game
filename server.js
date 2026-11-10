@@ -105,10 +105,10 @@ function createRoom(usedInit, code) {
 
   function setTimer(sec, fn) {
     clearTimeout(timer);
-    S.endsAt = Date.now() + sec * 1000;
+    S.endsAt = Date.now() + sec * 1000; S.paused = false;
     timer = setTimeout(() => { timer = null; fn(); broadcast(); }, sec * 1000 + 400);
   }
-  function clearTimer() { clearTimeout(timer); timer = null; S.endsAt = 0; }
+  function clearTimer() { clearTimeout(timer); timer = null; S.endsAt = 0; S.paused = false; }
 
   // ---------- хід гри ----------
   function startGame() {
@@ -571,6 +571,24 @@ function createRoom(usedInit, code) {
         return {};
       }
       // ведучий
+      case 'pause': case 'resume': case 'plus': case 'qback': case 'qrepeat': {
+        if (!isHost) return { error: 'Це може лише ведучий' };
+        const ph = S.phase, a = b.action;
+        if (!(ph === 'questions' || (ph === 'items' && (a === 'pause' || a === 'resume' || a === 'plus')))) return {};
+        if (a === 'pause') {
+          if (S.paused || !S.endsAt) return {};
+          S.pausedLeft = Math.max(1, Math.ceil((S.endsAt - Date.now()) / 1000));
+          clearTimeout(timer); timer = null; S.endsAt = 0; S.paused = true;
+        } else if (a === 'resume') {
+          if (!S.paused) return {};
+          setTimer(S.pausedLeft || 30, TIMEOUT[ph]);
+        } else if (a === 'plus') {
+          if (S.paused) S.pausedLeft = Math.min(600, (S.pausedLeft || 0) + 60);
+          else if (S.endsAt) setTimer(Math.min(600, (S.endsAt - Date.now()) / 1000 + 60), TIMEOUT[ph]);
+        } else if (a === 'qback') { S.idx = Math.max(0, S.idx - 1); startAsk(); }
+        else startAsk();   // qrepeat: той самий хід спочатку
+        return {};
+      }
       case 'start': case 'next': case 'lobby': case 'kick': case 'settings': case 'resetScore': {
         if (!isHost) return { error: 'Це може лише ведучий' };
         if (b.action === 'settings') {
@@ -606,7 +624,7 @@ function createRoom(usedInit, code) {
     const showChars = !['lobby', 'roles', 'names'].includes(ph);
     const p = byToken(token);
     const v = {
-      code: room.code, phase: ph, now: Date.now(), endsAt: S.endsAt || 0, game: S.game || '',
+      code: room.code, phase: ph, now: Date.now(), endsAt: S.endsAt || 0, paused: !!S.paused, pausedLeft: S.pausedLeft || 0, game: S.game || '',
       theme: ph === 'lobby' ? null : S.theme, hostId: room.hostId,
       spies: ph === 'lobby' ? (players.length >= TWO_SPIES_FROM ? 2 : 1) : S.spyIds.length, maxPlayers: MAX_PLAYERS,
       notice: S.notice || '', voteNo: S.voteNo || 1, extra: S.extra || null, slots: S.slots || null,
@@ -707,6 +725,7 @@ function createRoom(usedInit, code) {
   Object.assign(room, {
     handle, view, send, broadcast, isOnline, byToken, restore, snap,
     tokenId: t => { const p = byToken(t); return p ? p.id : ''; },
+    brief: () => ({ phase: S.phase || 'lobby', n: players.filter(p => !p.left).length }),
     checkHost, stop: () => clearTimeout(timer),
   });
   rooms.set(room.code, room);
@@ -781,7 +800,8 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'GET' && u.pathname === '/exists') {
     const room = getRoom(q('room'));
-    return json(res, { ok: !!room, host: !!room && room.hostKey === q('key'), player: !!room && !!room.tokenId(q('t')) });
+    const player = !!room && !!room.tokenId(q('t'));
+    return json(res, { ok: !!room, host: !!room && room.hostKey === q('key'), player, ...(player ? room.brief() : {}) });
   }
 
   if (req.method === 'POST' && u.pathname === '/api') {

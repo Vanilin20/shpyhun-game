@@ -180,6 +180,16 @@ const R = {
       <div class="card" style="animation-delay:${i * .12}s"><div class="paper" style="${rot(i)}">
         <div class="who">${av(p)}${esc(p.char || p.name)}</div>${cls === 'emo' ? `<div class="emo-row">${((st[field] || {})[p.id] || '').split(' ').filter(Boolean).map(e => `<span>${esc(e)}</span>`).join('') || '—'}</div>` : `<div class="big">${esc((st[field] || {})[p.id] || '—')}</div>`}</div></div>`).join('')}</div>`;
   },
+  // кнопки керування ведучого в допиті/поясненні предметів: пауза, +хвилина, повтор ходу, назад
+  hostCtl(st) {
+    const q = st.phase === 'questions';
+    return `<div class="hostctl">${st.paused ? '<button class="btn small" data-host="resume">▶ Продовжити</button>' : '<button class="btn small" data-host="pause">⏸ Пауза</button>'}<button class="btn small" data-host="plus">+1 хв</button>${q ? '<button class="btn small" data-host="qrepeat">↺ Спочатку</button><button class="btn small" data-host="qback">← Назад</button>' : ''}</div>`;
+  },
+  pauseBanner(st) {
+    if (!st.paused) return '';
+    const l = st.pausedLeft || 0;
+    return `<div class="paper pausebar"><b>⏸ Пауза</b> · залишилось ${Math.floor(l / 60)}:${String(l % 60).padStart(2, '0')}</div>`;
+  },
   // записки раундів «відгук / гороскоп / оголошення / заголовок»: картки + голосування за найкращий (не свій)
   fav(st, kind, interactive = false) {
     const src = (kind === 'review' ? st.reviews : st.texts) || {}, m = st.me || {};
