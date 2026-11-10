@@ -635,3 +635,37 @@ body.reconnecting::before { content: "Друкарня перезапускає�
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* відгуки */
+.reviews { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.review { padding: 14px 14px 16px; animation: paste .5s var(--pop) both; }
+.review .who { display: flex; align-items: center; gap: 8px; font: 700 15px var(--head); text-transform: uppercase; border-bottom: 1px solid var(--ink); padding-bottom: 6px; }
+.review .who .av { width: 26px; height: 26px; font-size: 12px; box-shadow: none; }
+.stars { font: 22px/1 var(--body); letter-spacing: .08em; color: var(--accent); margin: 8px 0 4px; }
+.stars i { font-style: normal; color: rgba(42, 33, 23, .22); }
+.review p { font: italic 17px/1.35 var(--body); margin: 4px 0 0; overflow-wrap: anywhere; }
+.starpick { display: flex; justify-content: center; gap: 6px; margin: 4px 0 10px; }
+.starpick button { font-size: 38px; line-height: 1; background: none; border: 0; color: rgba(42, 33, 23, .25); padding: 2px 4px; cursor: pointer; }
+.starpick button.on { color: var(--accent); transform: scale(1.08); }
+.tv .review p { font-size: 24px; } .tv .stars { font-size: 30px; } .tv .reviews { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+/* аукціон */
+.bidbar { text-align: center; font: 700 15px var(--mono); text-transform: uppercase; letter-spacing: .08em; margin: 4px 0 10px; }
+.bidbar b { font: 700 38px var(--head); color: var(--accent); display: inline-block; margin-right: 6px; }
+.bids { display: grid; gap: 10px; margin-bottom: 12px; }
+.bid { display: grid; grid-template-columns: 34px 1fr 44px; gap: 2px 8px; align-items: center; border-bottom: 1px dotted var(--ink); padding-bottom: 8px; }
+.bid .e { font: 26px var(--emo); } .bid .n { font: 700 15px/1.15 var(--head); text-transform: uppercase; }
+.bid .v { font: 700 22px var(--head); text-align: right; color: var(--accent); }
+.bid input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+.auc { display: grid; gap: 4px; overflow-x: auto; }
+.auc .ar { display: grid; grid-template-columns: minmax(78px, 1.3fr) repeat(var(--cols), minmax(38px, 1fr)); gap: 4px; align-items: center; animation: paste .45s var(--pop) both; }
+.auc .an { display: flex; align-items: center; gap: 6px; font: 700 13px var(--head); text-transform: uppercase; min-width: 0; }
+.auc .an span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auc .an .av { width: 22px; height: 22px; font-size: 11px; box-shadow: none; flex: none; }
+.auc .al { display: grid; justify-items: center; text-align: center; font: 10px/1.1 var(--mono); }
+.auc .al .e { font: 24px var(--emo); }
+.auc .ac { text-align: center; padding: 8px 2px; font: 700 18px var(--head); border: 1px solid var(--ink); background: rgba(143, 47, 31, calc(var(--h, 0) * .6)); color: var(--ink); }
+.auc .ac.none { opacity: .4; background: none; }
+.auc .sum .ac { border-width: 2px; } .auc .sum .an { font-size: 14px; }
+.lots-tv { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin-top: 18px; font: 700 22px var(--head); text-transform: uppercase; }
+.lots-tv i { font: 36px var(--emo); margin-right: 8px; }
+.tv .auc .ac { font-size: 28px; padding: 12px 2px; } .tv .auc .an { font-size: 20px; } .tv .auc .al small { font-size: 14px; } .tv .auc .al .e { font-size: 38px; }

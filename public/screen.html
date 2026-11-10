@@ -117,6 +117,10 @@ function view() {
     case 'itemsDone': return `${R.phaseTag(s)}<h1>Хто що взяв</h1>${R.items(s)}`;
     case 'emoji': return `<div class="tv-wait"><h1 class="headline">${ransom('Три емодзі', 64)}<span>Шифровка дня</span><small>Кожен описує локацію трьома емодзі. Потім усі з'являться тут.</small></h1></div>`;
     case 'emojiReveal': return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
+    case 'review': return `<div class="tv-wait"><h1 class="headline">${ransom('Відгуки', 64)}<span>Оцініть місце</span><small>Кожен пише відгук і ставить зірки, не називаючи локацію. Потім усі відгуки з'являться тут.</small></h1></div>`;
+    case 'reviewReveal': return `${R.phaseTag(s)}<h1>Відгуки відвідувачів</h1>${R.reviews(s)}`;
+    case 'auction': return `<div class="tv-wait"><h1 class="headline">${ransom('Аукціон', 64)}<span>100 монет на 6 лотів</span><small>Ставте таємно на те, що потрібне в цій локації. Потім з'явиться таблиця ставок.</small></h1></div><div class="lots-tv">${s.lots.map(l => `<span><i>${l.e}</i>${esc(l.n)}</span>`).join('')}</div>`;
+    case 'auctionReveal': return `${R.phaseTag(s)}<h1>Таблиця ставок</h1>${R.auction(s)}`;
     case 'scene': return `<div class="tv-wait"><h1 class="headline">${ransom('Колаж', 64)}<span>Складаємо сцени</span><small>Кожен складає місце з 1–5 наліпок. Потім усі сцени з'являться тут.</small></h1></div>`;
     case 'sceneReveal': return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
     case 'vote': return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
@@ -138,7 +142,7 @@ function view() {
   return '';
 }
 
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'reviewReveal', 'auctionReveal', 'voteResult', 'wordsReveal'];
 function actions() {
   if (!st.amHost) return '';
   if (st.phase === 'lobby') { const n = st.players.filter(p => p.online).length; return `<button class="btn primary" data-host="start" ${n < 3 ? 'disabled' : ''}><span class="star">☞</span>Відкрити засідання · ${n}</button>`; }

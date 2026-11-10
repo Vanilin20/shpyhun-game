@@ -157,7 +157,7 @@ const REASON = {
 };
 const PHASE_NAME = {
   roles: 'Досьє', names: 'Імена', namesReveal: 'Імена', questions: 'Допит', drawing: 'Малювання', drawReveal: 'Галерея',
-  items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
+  items: 'Предмети', itemsDone: 'Предмети', emoji: 'Емодзі', emojiReveal: 'Емодзі', review: 'Відгук', reviewReveal: 'Відгуки', auction: 'Аукціон', auctionReveal: 'Підсумки торгів', vote: 'Голосування', voteResult: 'Вирок', guess: 'Шанс шпигуна', verdict: 'Здогадка',
   words: 'Одне слово', wordsReveal: 'Слова', end: 'Справу закрито',
   scene: 'Сцена', sceneReveal: 'Сцени',
 };
@@ -168,7 +168,7 @@ const R = {
   P(st, id) { return st.players.find(p => p.id === id) || { name: '?', char: '' }; },
   alive(st) { return st.players.filter(p => p.alive); },
   // у додаткових раундах після голосування показуємо, що сталося (хто вибув)
-  phaseTag(st, text) { return `<div class="phase-tag"><span>${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
+  phaseTag(st, text) { return `<div class="phase-tag"><span>${esc(text || PHASE_NAME[st.phase] || '')}</span></div>${st.notice && ['drawing', 'items', 'scene', 'emoji', 'review', 'auction'].includes(st.phase) ? `<div class="banner">${esc(st.notice)}</div>` : ''}`; },
 
   names(st) {
     return `<div class="cards">${st.players.map((p, i) => `
@@ -179,6 +179,23 @@ const R = {
     return `<div class="cards">${R.alive(st).map((p, i) => `
       <div class="card" style="animation-delay:${i * .12}s"><div class="paper" style="${rot(i)}">
         <div class="who">${av(p)}${esc(p.char || p.name)}</div>${cls === 'emo' ? `<div class="emo-row">${((st[field] || {})[p.id] || '').split(' ').filter(Boolean).map(e => `<span>${esc(e)}</span>`).join('') || '—'}</div>` : `<div class="big">${esc((st[field] || {})[p.id] || '—')}</div>`}</div></div>`).join('')}</div>`;
+  },
+  // відгуки на локацію: імʼя, зірки, текст
+  reviews(st) {
+    const rv = st.reviews || {};
+    return `<div class="reviews">${R.alive(st).map((p, i) => { const r = rv[p.id]; return `
+      <div class="paper review" style="${rot(i)};animation-delay:${i * .14}s"><div class="who">${av(p)}<b>${esc(dn(p))}</b></div>
+      ${r ? `<div class="stars">${'★'.repeat(r.s)}<i>${'★'.repeat(5 - r.s)}</i></div><p>«${esc(r.t)}»</p>` : '<p class="muted">— не встиг —</p>'}</div>`; }).join('')}</div>`;
+  },
+  // таблиця ставок аукціону: гравці × лоти, внизу сума
+  auction(st) {
+    const lots = st.lots || [], bids = st.bids || {}, ps = R.alive(st);
+    const tot = lots.map((_, k) => ps.reduce((a, p) => a + ((bids[p.id] || [])[k] || 0), 0));
+    const mx = Math.max(1, ...tot);
+    return `<div class="auc" style="--cols:${lots.length}">
+      <div class="ar head"><div class="an"></div>${lots.map(l => `<div class="al"><span class="e">${l.e}</span><small>${esc(l.n)}</small></div>`).join('')}</div>
+      ${ps.map((p, i) => `<div class="ar" style="animation-delay:${i * .1}s"><div class="an">${av(p)}<span>${esc(dn(p))}</span></div>${lots.map((_, k) => { const v = (bids[p.id] || [])[k]; return v == null ? '<div class="ac none">—</div>' : `<div class="ac" style="--h:${Math.min(1, v / 50)}">${v}</div>`; }).join('')}</div>`).join('')}
+      <div class="ar sum"><div class="an"><span>Разом</span></div>${tot.map(t => `<div class="ac" style="--h:${t / mx}">${t}</div>`).join('')}</div></div>`;
   },
   gallery(st, field = 'drawings') {
     return `<div class="gallery">${R.alive(st).map((p, i) => {
@@ -232,11 +249,11 @@ const R = {
   // налаштування ведучого в лобі (іншим — лише показ)
   settings(st) {
     const s = st.settings, ed = st.amHost;
-    const chip = (k, label) => `<button class="opt-chip ${s[k] ? 'on' : ''}" ${ed ? `data-set="${k}"` : 'disabled'}>${label}</button>`;
+    const chip = (k, label) => `<button class="opt-chip ${s[k] !== false ? 'on' : ''}" ${ed ? `data-set="${k}"` : 'disabled'}>${label}</button>`;
     const pace = [[0.67, 'Швидко'], [1, 'Звичайно'], [1.5, 'Повільно']].map(([v, l]) => `<button class="opt-chip ${s.pace === v ? 'on' : ''}" ${ed ? `data-pace="${v}"` : 'disabled'}>${l}</button>`).join('');
     return `<div class="settings">
       <div class="sec-head"><span>Рубрики номера</span>${ed ? '<small>тисни, щоб увімкнути</small>' : ''}</div>
-      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}</div>
+      <div class="chips">${chip('drawing', 'Малювання')}${chip('items', 'Предмети')}${chip('scene', 'Сцена')}${chip('emoji', 'Емодзі')}${chip('review', 'Відгук')}${chip('auction', 'Аукціон')}</div>
       <p class="fine">Щогри випадково 2 різні з увімкнених: одна після імен, друга перед голосуванням.</p>
       <div class="sec-head"><span>Як граємо</span></div>
       <div class="chips"><button class="opt-chip ${s.remote ? '' : 'on'}" ${ed ? 'data-remote="0"' : 'disabled'}>Поруч — уголос</button>

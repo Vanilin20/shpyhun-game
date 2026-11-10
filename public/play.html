@@ -462,6 +462,28 @@ function screenHtml() {
     }
     case 'emojiReveal':
       return `${R.phaseTag(s)}<h1>Хто що ввів</h1>${R.words(s, 'emojis', 'emo')}`;
+    case 'review': {
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші пишуть відгуки…')}`;
+      if (m.mine) return `${R.phaseTag(s)}<div class="paper" style="--rot:1deg"><div class="lbl">Твій відгук</div><div class="stars">${'★'.repeat(m.mine.s)}<i>${'★'.repeat(5 - m.mine.s)}</i></div><p class="center">«${esc(m.mine.t)}»</p></div>${wait('Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Відгук на місце</h1>
+        <p class="muted">${m.isSpy ? `Ти шпигун. Напиши відгук так, ніби ти там був — підлаштуйся під тему «${esc(s.theme)}».` : 'Напиши короткий відгук на цю локацію й поставь зірки, але не називай її. Свої впізнають, а шпигун мусить вигадувати.'}</p>
+        <div class="starpick" id="stars">${[1, 2, 3, 4, 5].map(n => `<button type="button" data-s="${n}">★</button>`).join('')}</div>
+        <textarea id="rvtxt" maxlength="140" rows="3" placeholder="Напр.: Дорого, довго чекали, але персонал душка…"></textarea>
+        <button class="btn primary wide" id="rvSend" disabled>Опублікувати</button><div id="dots"></div>`;
+    }
+    case 'reviewReveal':
+      return `${R.phaseTag(s)}<h1>Відгуки відвідувачів</h1>${R.reviews(s)}`;
+    case 'auction': {
+      if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші роблять ставки…')}`;
+      if (m.mine) return `${R.phaseTag(s)}${wait('Ставки зроблено. Чекаємо інших…')}`;
+      return `${R.phaseTag(s)}<h1>Аукціон</h1>
+        <p class="muted">${m.isSpy ? 'Ти шпигун: локації не знаєш — вгадай, що тут цінне.' : 'Став більше на те, що справді потрібне в цій локації.'} У тебе 100 монет. Однакові ставки на все — підозріло.</p>
+        <div class="bidbar"><b id="aLeft">100</b> монет залишилось</div>
+        <div class="bids">${s.lots.map((l, k) => `<label class="bid"><span class="e">${l.e}</span><span class="n">${esc(l.n)}</span><b class="v">0</b><input type="range" min="0" max="100" step="5" value="0" data-k="${k}"></label>`).join('')}</div>
+        <button class="btn primary wide" id="aSend" disabled>Зробити ставки</button><div id="dots"></div>`;
+    }
+    case 'auctionReveal':
+      return `${R.phaseTag(s)}<h1>Таблиця ставок</h1>${R.auction(s)}`;
     case 'scene':
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші складають сцени…')}`;
       if (m.mine || sceneSent) return `${R.phaseTag(s)}${wait('Сцену здано. Чекаємо інших…')}`;
@@ -526,7 +548,7 @@ function screenHtml() {
 }
 
 // ---------- кнопки ведучого ----------
-const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'voteResult', 'wordsReveal'];
+const REVEAL = ['namesReveal', 'drawReveal', 'itemsDone', 'emojiReveal', 'sceneReveal', 'reviewReveal', 'auctionReveal', 'voteResult', 'wordsReveal'];
 function hostbarHtml() {
   const s = st;
   if (!s.amHost) return '';
@@ -620,6 +642,20 @@ function bind() {
   };
   if (st.phase === 'drawing' && $('#cv')) { canvasApi = setupCanvas(); $('#send').onclick = sendDrawing; return; }
   if (st.phase === 'scene' && $('#sc')) { sceneApi = setupScene(); $('#send').onclick = sendScene; return; }
+  if (st.phase === 'review' && $('#rvSend')) {
+    let stars = 0; const t = $('#rvtxt'), b = $('#rvSend');
+    const upd = () => { b.disabled = !(stars && t.value.trim()); };
+    $('#stars').querySelectorAll('button').forEach(x => x.onclick = () => { stars = +x.dataset.s; $('#stars').querySelectorAll('button').forEach(y => y.classList.toggle('on', +y.dataset.s <= stars)); upd(); });
+    t.oninput = upd; b.onclick = () => { b.disabled = true; api('review', { text: t.value.trim(), stars }); };
+    return;
+  }
+  if (st.phase === 'auction' && $('#aSend')) {
+    const rs = [...document.querySelectorAll('.bid input')], b = $('#aSend');
+    const upd = () => { const sum = rs.reduce((a, r) => a + +r.value, 0); $('#aLeft').textContent = 100 - sum; b.disabled = sum !== 100; rs.forEach(r => { r.parentNode.querySelector('.v').textContent = r.value; }); };
+    rs.forEach(r => r.oninput = () => { const others = rs.reduce((a, x) => a + (x === r ? 0 : +x.value), 0); if (+r.value > 100 - others) r.value = 100 - others; upd(); });
+    b.onclick = () => { b.disabled = true; api('bid', { bids: rs.map(r => +r.value) }); };
+    return;
+  }
   const btn = $('#send'), txt = $('#txt');
   if (btn && txt && st.phase === 'emoji') {
     const seg = new Intl.Segmenter('uk', { granularity: 'grapheme' });
