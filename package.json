@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Шпигун — гра для компанії: ноутбук веде раунди, телефони — пульти",
   "main": "server.js",
-  "scripts": { "start": "node server.js" },
+  "scripts": { "start": "node server.js", "test": "node tests/run.js" },
   "engines": { "node": ">=18" },
   "license": "MIT"
 }

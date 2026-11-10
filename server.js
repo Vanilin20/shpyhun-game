@@ -10,7 +10,7 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 const { exec } = require('child_process');
-const { THEMES, ITEMS, LOC_ITEMS, THEME_FIT } = require('./data');
+const { THEMES, ITEMS, LOC_ITEMS } = require('./data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
@@ -155,12 +155,10 @@ function createRoom(usedInit, code) {
   // Додаткові раунди: щогри випадково 2 різні з увімкнених — один після імен, другий перед голосуванням.
   // Раунди з минулої партії по змозі не повторюються.
   const ROUNDS = ['drawing', 'items', 'scene', 'emoji', 'review', 'auction'];
-  // вага раунду для теми (THEME_FIT): підходящі випадають частіше, вага 0 — ніколи.
-  // Раунди минулої партії не повторюються, поки є з чого обрати інші.
+  // Раунди обираються випадково; раунди минулої партії не повторюються, поки є з чого обрати інші.
   function pickRounds() {
     const on = ROUNDS.filter(k => room.settings[k] !== false);
-    const fit = (THEME_FIT[S.theme] || ['', {}])[1];
-    const weighted = list => list.map(k => ({ k, w: k in fit ? fit[k] : 1 })).filter(x => x.w > 0);
+    const weighted = list => list.map(k => ({ k, w: 1 }));
     const draw = (pool, n) => { const out = []; pool = pool.slice();
       while (out.length < n && pool.length) {
         let r = Math.random() * pool.reduce((a, x) => a + x.w, 0);
@@ -185,12 +183,10 @@ function createRoom(usedInit, code) {
   }
   function roundDone() { if (S.slot === 0) toQuestions(); else toVote(); }
 
-  // сцена: 20 наліпок-емодзі (до 12 від локацій теми + випадкові), ставиш 1–5, крутиш, збільшуєш, домальовуєш
+  // сцена: 20 нейтральних наліпок-емодзі, ставиш 1–5, крутиш, збільшуєш, домальовуєш
   function toScene() {
-    const themed = (THEMES[S.theme] || []).flatMap(l => (LOC_ITEMS[l] || []).map(x => x[0]));
-    const seen = new Set(themed);
-    const extra = shuffle(ITEMS.map(x => x[0]).filter(e => !seen.has(e) && (seen.add(e), true)));
-    S.stickers = shuffle([...new Set(themed)].concat(extra).slice(0, 20));
+    const seenE = new Set();
+    S.stickers = shuffle(ITEMS.map(x => x[0])).filter(e => !seenE.has(e) && seenE.add(e)).slice(0, 20);
     S.phase = 'scene'; S.sub = {}; setTimer(T('scene'), revealScene);
   }
   function revealScene() { S.scenes = { ...S.sub }; S.sub = {}; S.phase = 'sceneReveal'; setTimer(T('sceneReveal'), roundDone); }

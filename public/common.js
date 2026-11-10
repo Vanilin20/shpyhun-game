@@ -303,7 +303,7 @@ const R = {
   },
   history(st, meName) {
     const h = st.history || [];
-    if (!h.length) return '';
+    if (!h.length) return `<details class="archive"><summary><span>Архів номерів · 0</span><small>порожньо</small></summary><p class="muted center" style="padding:10px">Тут з'являться завершені партії цієї кімнати: локація, хто був шпигуном і чим усе скінчилося.</p></details>`;
     const WIN = { spy: 'шпигун утік', civ: 'шпигуна викрито' };
     return `<details class="archive"><summary><span>Архів номерів · ${h.length}</span><small>хто був шпигуном</small></summary>
       <div class="arch-list">${h.map((g, i) => `<div class="arch-row ${g.winner === 'spy' ? 'spy' : ''}" style="--i:${i}">
