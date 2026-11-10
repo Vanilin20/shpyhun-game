@@ -220,7 +220,8 @@ function createRoom(usedInit, code) {
     else {
       S.phase = 'items';
       // 12 нейтральних предметів, не привʼязаних до локацій: зв'язок треба вигадати, а не «він там часто трапляється»
-      S.items = shuffle(ITEMS).slice(0, 12).map(([e, n]) => ({ e, n, by: null }));
+      const seenE = new Set();
+      S.items = shuffle(ITEMS).filter(x => !seenE.has(x[0]) && seenE.add(x[0])).slice(0, 12).map(([e, n]) => ({ e, n, by: null }));
       S.order = shuffle(alive().map(p => p.id)); S.idx = 0;
       startPick();
     }
