@@ -89,7 +89,7 @@ function view() {
           ${isLocalHost && (s.lanUrls || []).length > 1 ? `<button class="linkbtn" id="nextUrl">Телефони не відкривають? Інша адреса</button>` : ''}
         </div>
         <div style="display:grid;gap:18px;align-content:start">
-          <h1 class="headline left">${ransom('Збір товариства', 46)}<small>Скануйте QR і заходьте. ${s.players.length >= 7 ? 'У грі буде <b class="acc">два шпигуни</b>.' : 'Від 3 до 12 гравців, від 7 — два шпигуни.'}</small></h1>
+          <h1 class="headline left">${ransom('Збір товариства', 46)}<small>Скануйте QR і заходьте. ${s.spies > 1 ? `У грі буде <b class="acc">${s.spies === 3 ? 'три' : 'два'} шпигуни</b>.` : 'Від 3 до 12 гравців, від 7 — два шпигуни, від 9 — три.'}</small></h1>
           <section class="present"><div class="sec-head"><span>Присутні · ${s.players.length} з ${s.maxPlayers}</span></div>
           <div class="plist cols">${s.players.length ? s.players.map((p, i) => `
             <div class="prow ${p.online ? '' : 'off'}" style="--i:${i}">${av(p)}<span class="nm">${esc(p.name)}</span><span class="lead"></span>${p.id === s.hostId ? '<span class="tag">♛ редактор</span>' : ''}
@@ -129,12 +129,11 @@ function view() {
     case 'headlineReveal': return `${R.phaseTag(s)}<h1>Головні новини дня</h1>${R.fav(s, 'headline')}`;
     case 'scene': return `<div class="tv-wait"><h1 class="headline">${ransom('Колаж', 64)}<span>Складаємо сцени</span><small>Кожен складає місце з 1–5 наліпок. Потім усі сцени з'являться тут.</small></h1></div>`;
     case 'sceneReveal': return `${R.phaseTag(s)}<h1>Сцени</h1>${R.gallery(s, 'scenes')}`;
-    case 'vote': return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}
+    case 'vote': return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${s.notice ? `<div class="banner">${esc(s.notice)}</div>` : ''}${R.needNote(s)}
       <div class="wanted-head"><span class="kicker">★ ★ ★ Увага ★ ★ ★</span><h1>${ransom('Розшукується', 56)}</h1><span class="deck-line">шпигун · голосуйте на телефонах</span></div>
       <div class="wanted-grid">${R.alive(s).filter(p => !s.cands || s.cands.includes(p.id)).map((p, i) => R.poster(s, p, { i })).join('')}</div>`;
-    case 'voteResult': { const r = s.res || {}, out = r.out ? P(r.out) : null;
-      return `${R.phaseTag(s, 'Вирок')}<div class="verdict-out">${out ? `${R.poster(s, out, { stamp: 'Вигнано' })}<h1 class="headline">Вигнали: ${esc(dn(out))}</h1>` : `<h1 class="headline">${ransom('Нікого', 56)}<span>не вигнали</span></h1>`}<p class="deck-line">Хто він насправді — редакція повідомить пізніше.</p></div>
-        <div style="max-width:760px;width:100%;margin:0 auto">${R.bars(s)}</div>`; }
+    case 'voteResult': return `${R.phaseTag(s, 'Вирок')}<div class="verdict-out">${R.outs(s)}<p class="deck-line">Хто вони насправді — редакція повідомить пізніше.</p></div>
+        <div style="max-width:760px;width:100%;margin:0 auto">${R.bars(s)}</div>`;
     case 'guess': return `<div class="tv-wait"><span class="stamp big">Шанс шпигуна</span><h1 class="headline">${ransom('Тиша в залі', 60)}<span>Шпигун говорить</span></h1>
       <p class="deck-line">${s.spies > 1 ? 'Кожен шпигун може окремо назвати локацію. Вгадає — перемога шпигунів. Помилиться — вибуває.' : 'Шпигун може назвати локацію. Вгадає — перемога. Помилиться — програш.'}</p></div>`;
     case 'verdict': return `<div class="tv-wait"><h1 class="headline"><span>Шпигун каже:</span></h1>

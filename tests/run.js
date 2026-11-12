@@ -4,7 +4,7 @@ const { spawn, spawnSync } = require('child_process');
 const path = require('path'), root = path.join(__dirname, '..');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const env = { ...process.env, PORT: '3999' };
-const withServer = ['controls', 'doubletap', 'flow', 'leave', 'rounds', 'two-spies', 'no-repeat'], alone = ['restore'];
+const withServer = ['three-spies', 'controls', 'doubletap', 'flow', 'leave', 'rounds', 'two-spies', 'no-repeat'], alone = ['restore'];
 let bad = 0;
 function run(name) {
   const r = spawnSync('node', [path.join(__dirname, name + '.js')], { cwd: root, env, encoding: 'utf8', timeout: 280000 });

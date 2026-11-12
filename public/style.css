@@ -695,3 +695,4 @@ body.reconnecting::before { content: "Друкарня перезапускає�
 .mr-go span { font: 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; }
 .mr-go i { font: italic 14px var(--body); }
 .mr-x { width: 40px; border: 2px solid var(--ink); background: none; color: var(--ink); font-size: 22px; cursor: pointer; }
+.outs { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; } .outs .wanted { max-width: 46%; }

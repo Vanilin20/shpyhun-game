@@ -16,6 +16,8 @@ const PORT = Number(process.env.PORT) || 3000;
 const PUB = path.join(__dirname, 'public');
 const MAX_PLAYERS = 12;
 const TWO_SPIES_FROM = 7;   // з такої кількості гравців — 2 шпигуни
+const THREE_SPIES_FROM = 9; // з такої — 3 шпигуни (перше голосування вигонить двох)
+const spyCount = n => (n >= THREE_SPIES_FROM ? 3 : n >= TWO_SPIES_FROM ? 2 : 1);
 const MAX_ROOMS = 300;
 
 // Знімок кімнати (зашифрований) лежить у браузерах гравців. Якщо сервер перезапустився
@@ -118,7 +120,7 @@ function createRoom(usedInit, code) {
     const pair = nextPair();
     players.forEach(p => { p.alive = true; p.char = ''; });
     clearTimer();
-    const spyIds = shuffle(players).slice(0, players.length >= TWO_SPIES_FROM ? 2 : 1).map(p => p.id);
+    const spyIds = shuffle(players).slice(0, spyCount(players.length)).map(p => p.id);
     S = { tally: null, phase: 'roles', theme: pair.theme, location: pair.loc, spyIds, sub: {}, voteNo: 1, notice: '', endsAt: 0, game: rid(3) };
     setTimer(T('roles'), toNames);
     return null;
@@ -245,8 +247,11 @@ function createRoom(usedInit, code) {
   }
   function nextItem() { S.idx++; if (S.idx >= S.order.length) { S.phase = 'itemsDone'; setTimer(T('itemsDone'), roundDone); } else startPick(); }
 
-  function toVote(cands) {
-    if (!cands) { S.revote = false; S.notice = ''; }
+  // need — скільки людей вигонить це голосування: з трьома шпигунами перше голосування вигонить двох, далі по одному
+  function toVote(cands, need, carry) {
+    if (!cands) { S.revote = false; S.notice = ''; S.carry = []; }
+    S.need = need || ((S.voteNo === 1 && S.spyIds.length >= 3) ? 2 : 1);
+    if (carry) S.carry = carry;
     S.phase = 'vote'; S.votes = {}; S.cands = cands || null;
     setTimer(T('vote'), tally);
   }
@@ -254,26 +259,32 @@ function createRoom(usedInit, code) {
     clearTimer();
     const counts = {};
     for (const t of Object.values(S.votes)) counts[t] = (counts[t] || 0) + 1;
-    const max = Math.max(0, ...Object.values(counts));
-    const top = max ? Object.keys(counts).filter(k => counts[k] === max) : [];
-    let out = null;
-    (S.voteLog = S.voteLog || []).push({ no: S.voteNo, revote: !!S.revote, votes: { ...S.votes }, out: top.length === 1 ? top[0] : null });
-    if (top.length === 1) out = top[0];
-    else if (top.length > 1 && !S.revote) {
-      S.revote = true;
-      S.notice = 'Нічия! Переголосування між: ' + top.map(nm).join(', ');
-      return toVote(top);
+    const groups = {};
+    for (const [id, c] of Object.entries(counts)) (groups[c] = groups[c] || []).push(id);
+    const outs = []; let tied = null;
+    for (const c of Object.keys(groups).map(Number).sort((x, y) => y - x)) {
+      if (outs.length >= S.need) break;
+      const g = groups[c];
+      if (outs.length + g.length <= S.need) outs.push(...g); else { tied = g; break; }
     }
-    S.revote = false; S.notice = '';
-    if (out) byId(out).alive = false;
-    S.res = { counts, out };
+    (S.voteLog = S.voteLog || []).push({ no: S.voteNo, revote: !!S.revote, votes: { ...S.votes }, outs: [...outs] });
+    if (tied && !S.revote) {
+      S.revote = true;
+      outs.forEach(id => { byId(id).alive = false; });
+      S.notice = 'Нічия! Переголосування між: ' + tied.map(nm).join(', ') + (outs.length ? `. Вже вигнали: ${outs.map(nm).join(', ')}` : '');
+      return toVote(tied, S.need - outs.length, (S.carry || []).concat(outs));
+    }
+    const all = (S.carry || []).concat(outs);
+    S.revote = false; S.notice = ''; S.carry = [];
+    outs.forEach(id => { byId(id).alive = false; });
+    S.res = { counts, outs: all, out: all[0] || null };
     S.phase = 'voteResult';
     setTimer(T('voteResult'), toGuess);
   }
 
   const isSpy = id => !!S.spyIds && S.spyIds.includes(id);
   // хто зі шпигунів може зараз назвати локацію: живі + щойно вигнаний
-  const guessers = () => S.spyIds.filter(id => { const x = byId(id); return x && (x.alive || (S.res && S.res.out === id)); });
+  const guessers = () => S.spyIds.filter(id => { const x = byId(id); return x && (x.alive || (S.res && (S.res.outs || []).includes(id))); });
   // Кожен шпигун може окремо назвати локацію. Здогадки мирні оцінюють по черзі:
   // вгадав — шпигуни перемогли; помилився — вибуває лише той, хто помилився.
   function toGuess() { S.phase = 'guess'; S.guess = ''; S.guessBy = null; S.skips = {}; S.pending = {}; S.wrong = []; setTimer(T('guess'), afterGuess); }
@@ -297,7 +308,7 @@ function createRoom(usedInit, code) {
     nextVerdict();
   }
   function resolveNoGuess() {
-    const out = S.res && S.res.out;
+    const outs = (S.res && S.res.outs) || [];
     const spiesLeft = S.spyIds.filter(id => byId(id) && byId(id).alive).length;
     const last = S.wrong && S.wrong[S.wrong.length - 1];
     if (last) { S.guess = last.guess; S.guessBy = last.by; S.tally = last.tally; }
@@ -306,8 +317,9 @@ function createRoom(usedInit, code) {
     const maxVotes = S.spyIds.length > 1 ? 3 : 2;   // з двома шпигунами — до 3 голосувань
     if (S.voteNo >= maxVotes) return endGame('spy', 'survived');
     S.voteNo++;
-    const parts = [!out ? 'Нікого не вигнали' : isSpy(out) ? `${nm(out)} — шпигун!${spiesLeft ? ' Але серед вас є ще один' : ''}` : `${nm(out)} — не шпигун`];
-    for (const w of S.wrong || []) if (w.by !== out) parts.push(`${nm(w.by)} — шпигун, помилився з локацією й вибуває`);
+    const parts = outs.length ? outs.map(o => (isSpy(o) ? `${nm(o)} — шпигун!` : `${nm(o)} — не шпигун`)) : ['Нікого не вигнали'];
+    if (spiesLeft && outs.some(isSpy)) { const i = parts.map((t, k) => (isSpy(outs[k]) ? k : -1)).filter(k => k >= 0).pop(); parts[i] += spiesLeft > 1 ? ` Але серед вас ще ${spiesLeft} шпигуни` : ' Але серед вас є ще один'; }
+    for (const w of S.wrong || []) if (!outs.includes(w.by)) parts.push(`${nm(w.by)} — шпигун, помилився з локацією й вибуває`);
     S.guess = ''; S.guessBy = null; S.tally = null;
     if (S.voteNo === 3) {
       // перед третім голосуванням — ще один випадковий раунд, якого не було в цій партії
@@ -330,7 +342,7 @@ function createRoom(usedInit, code) {
     // архів номерів: що це була за партія
     const nm = id => { const p = byId(id); return p ? p.name : '?'; };
     room.history.unshift({ n: (room.history[0] ? room.history[0].n : 0) + 1, theme: S.theme, loc: S.location, spies: S.spyIds.map(nm), winner, reason,
-      guess: S.guess || '', guessBy: S.guessBy ? nm(S.guessBy) : '', out: (S.voteLog || []).filter(r => r.out).map(r => nm(r.out)), rounds: (S.slots || []).filter(Boolean), players: players.filter(p => !p.left).length, at: Date.now() });
+      guess: S.guess || '', guessBy: S.guessBy ? nm(S.guessBy) : '', out: (S.voteLog || []).flatMap(r => (r.outs || []).map(nm)), rounds: (S.slots || []).filter(Boolean), players: players.filter(p => !p.left).length, at: Date.now() });
     room.history = room.history.slice(0, 30);
   }
   function toLobby() { clearTimer(); S = { phase: 'lobby' }; players = players.filter(p => !p.left); players.forEach(p => { p.alive = true; p.char = ''; }); }
@@ -626,8 +638,8 @@ function createRoom(usedInit, code) {
     const v = {
       code: room.code, phase: ph, now: Date.now(), endsAt: S.endsAt || 0, paused: !!S.paused, pausedLeft: S.pausedLeft || 0, game: S.game || '',
       theme: ph === 'lobby' ? null : S.theme, hostId: room.hostId,
-      spies: ph === 'lobby' ? (players.length >= TWO_SPIES_FROM ? 2 : 1) : S.spyIds.length, maxPlayers: MAX_PLAYERS,
-      notice: S.notice || '', voteNo: S.voteNo || 1, extra: S.extra || null, slots: S.slots || null,
+      spies: ph === 'lobby' ? spyCount(players.length) : S.spyIds.length, maxPlayers: MAX_PLAYERS,
+      notice: S.notice || '', voteNo: S.voteNo || 1, need: ph === 'vote' ? S.need || 1 : 1, extra: S.extra || null, slots: S.slots || null,
       players: players.map(x => ({ id: x.id, name: x.name, alive: x.alive !== false, online: isOnline(x.id), char: showChars ? x.char : '', score: x.score || 0 })),
       settings: room.settings,
       done: [],

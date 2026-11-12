@@ -259,10 +259,21 @@ const R = {
   bars(st) {
     const r = st.res || { counts: {} };
     const max = Math.max(1, ...Object.values(r.counts));
-    return `<div class="bars">${st.players.filter(p => p.alive || p.id === r.out).map(p => {
+    const outs = r.outs || [];
+    return `<div class="bars">${st.players.filter(p => p.alive || outs.includes(p.id)).map(p => {
       const c = r.counts[p.id] || 0;
-      return `<div class="bar ${p.id === r.out ? 'out' : ''}">${av(p)}<div class="track"><div class="fill" style="--w:${c / max * 100}%"></div></div><b>${c}</b></div>`;
+      return `<div class="bar ${outs.includes(p.id) ? 'out' : ''}">${av(p)}<div class="track"><div class="fill" style="--w:${c / max * 100}%"></div></div><b>${c}</b></div>`;
     }).join('')}</div>`;
+  },
+  // голосування, що вигонить двох (перше при трьох шпигунах)
+  needNote(st) { return st.need > 1 ? `<div class="banner">Перше голосування вигонить <b>двох</b>: вибувають двоє з найбільшою кількістю голосів.</div>` : ''; },
+  // результат голосування: один або кілька вигнаних
+  outs(st, small) {
+    const r = st.res || {}, outs = (r.outs || []).map(id => R.P(st, id)).filter(Boolean), m = st.me;
+    if (!outs.length) return `<h1 class="headline">${ransom('Нікого', small ? 32 : 56)}<span>не вигнали</span></h1>`;
+    const names = outs.map(o => esc(dn(o))).join(' і ');
+    const title = m && outs.some(o => o.id === m.id) ? (outs.length > 1 ? `Тебе вигнали разом із ${outs.filter(o => o.id !== m.id).map(o => esc(dn(o))).join('')}` : 'Тебе вигнали') : `Вигнали: ${names}`;
+    return `<div class="outs">${outs.map(o => R.poster(st, o, { stamp: 'Вигнано' })).join('')}</div><h1 class="headline">${title}</h1>`;
   },
   doneDots(st, ids) {
     const done = new Set(st.done || []);
@@ -321,7 +332,7 @@ const R = {
     return `<div class="votelog">${log.map((r, i) => `
       <div class="chron"><div class="sec-head"><span>Хроніка голосування № ${r.no}${r.revote ? ' · переголосування' : ''}</span></div>
         <div class="vgrid">${Object.entries(r.votes).map(([v, t]) => `<div class="vline"><span>${who(v)}</span><span class="arr">→</span><b class="${e.spyIds.includes(t) ? 'hit' : ''}">${who(t)}</b></div>`).join('')}</div>
-        <div class="vout">${r.out ? `Вибув: <b>${who(r.out)}</b>${e.spyIds.includes(r.out) ? ' — <span class="hit">шпигун</span>' : ' — мирний'}` : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
+        <div class="vout">${(r.outs || []).length ? (r.outs.length > 1 ? 'Вибули: ' : 'Вибув: ') + r.outs.map(o => `<b>${who(o)}</b>${e.spyIds.includes(o) ? ' — <span class="hit">шпигун</span>' : ' — мирний'}`).join('; ') : 'Нікого не вигнали'}</div></div>`).join('')}</div>`;
   },
   history(st, meName) {
     const h = st.history || [];

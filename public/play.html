@@ -106,7 +106,7 @@ const RULES = `<details class="rules"><summary><span>Правила гри</span
     <li><b>Два випадкові раунди</b> щогри — один після імен, другий перед голосуванням: малювання, предмети, сцена з наліпок, три емодзі, відгук на місце або аукціон.</li>
   <li><b>Голосування.</b> Після нього шпигун має 30 секунд, щоб назвати локацію: вгадав — переміг, помилився — програв.</li>
   <li><b>Одне слово</b> і друге голосування.</li>
-  <li>Від 7 гравців — <b>два шпигуни</b>, які знають одне одного. Кожен окремо може назвати локацію: помилився — вибуває лише він. Голосувань до трьох (перед третім — ще один випадковий раунд). Мирним треба вигнати обох.</li>
+  <li>Від 7 гравців — <b>два шпигуни</b>, від 9 — <b>три</b>; вони знають одне одного. При трьох перше голосування вигонить двох (з найбільшою кількістю голосів), далі — по одному. Кожен окремо може назвати локацію: помилився — вибуває лише він. Голосувань до трьох (перед третім — ще один випадковий раунд). Мирним треба вигнати обох.</li>
   <li><b>Граєте не разом?</b> Ведучий вмикає «На відстані»: питання, відповіді й пояснення пишуться в грі, а для розмов є чат.</li>
   <li><b>Рахунок:</b> перемога шпигуна — +2 кожному шпигуну, перемога мирних — +1 кожному мирному.</li></ol></details>`;
 
@@ -217,7 +217,7 @@ function dossier() {
       <div class="r"><span class="lbl">Твоя роль</span><span class="d-v ${spy ? 'spyline' : ''}">${spy ? 'Шпигун' : 'Мирний'}</span></div></div>
     <div class="d-loc"><span class="lbl">Місце події</span><span class="d-big ${spy ? 'spyline' : ''}" style="font-size:${fs}px">${esc(loc)}</span></div>
     ${spy && m.partners.length ? `<div class="d-partner"><span class="lbl">Твій напарник</span><b class="spyline">${m.partners.map(esc).join(', ')}</b></div>` : ''}
-    <p class="d-note">${spy ? `Локацію ${m.partners.length ? 'ви не знаєте' : 'ти не знаєш'}. Вдавай, що знаєш, — і вгадай її.` : st.spies > 1 ? 'Серед вас ДВА шпигуни. Вони знають лише тему й знають одне одного.' : 'Серед вас шпигун. Він знає лише тему.'}</p>
+    <p class="d-note">${spy ? `Локацію ${m.partners.length ? 'ви не знаєте' : 'ти не знаєш'}. Вдавай, що знаєш, — і вгадай її.` : st.spies > 1 ? `Серед вас ${st.spies === 3 ? 'ТРИ' : 'ДВА'} шпигуни. Вони знають лише тему й знають одне одного.` : 'Серед вас шпигун. Він знає лише тему.'}</p>
     <div class="cover"><span class="stamp">Цілком таємно</span><b>Натисни й тримай</b><small>щоб прочитати вирізку</small></div>
   </section>`;
 }
@@ -417,7 +417,7 @@ function screenHtml() {
           <div class="row"><button class="btn small" id="shareBtn">${ICON.share}Поділитися</button><button class="btn small" id="copyBtn">${ICON.link}Скопіювати</button></div>
         </section>
         <section class="present">
-          <div class="sec-head"><span>Присутні · ${n} з ${s.maxPlayers}</span>${n >= 7 ? '<small class="acc">два шпигуни</small>' : ''}</div>
+          <div class="sec-head"><span>Присутні · ${n} з ${s.maxPlayers}</span>${s.spies > 1 ? `<small class="acc">${s.spies === 3 ? 'три' : 'два'} шпигуни</small>` : ''}</div>
           <div class="plist">${s.players.map((p, i) => `
             <div class="prow ${p.online ? '' : 'off'}" style="--i:${i}">${av(p)}<span class="nm">${esc(p.name)}${p.id === m.id ? ' <i>(ти)</i>' : ''}</span><span class="lead"></span>
               ${p.id === s.hostId ? '<span class="tag">♛ редактор</span>' : p.online ? '' : '<span class="tag">поза мережею</span>'}
@@ -545,16 +545,14 @@ function screenHtml() {
     case 'vote': {
       if (!m.alive) return `${R.phaseTag(s)}${outBanner()}${wait('Інші голосують…')}`;
       const cands = s.players.filter(p => p.alive && p.id !== m.id && (!s.cands || s.cands.includes(p.id)));
-      return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${notice()}<div class="wanted-head"><span class="kicker">★ ★ ★ Увага ★ ★ ★</span>
+      return `${R.phaseTag(s, 'Голосування № ' + (s.voteNo || 1))}${notice()}${R.needNote(s)}<div class="wanted-head"><span class="kicker">★ ★ ★ Увага ★ ★ ★</span>
         <h1>${ransom('Розшукується', 27)}</h1><span class="deck-line">торкнись плаката того, хто, на твою думку, шпигун</span></div>
         <div class="wanted-grid">${cands.map((p, i) => R.poster(s, p, { tag: 'button', sel: m.vote === p.id, attr: `data-vote="${p.id}" aria-pressed="${m.vote === p.id}"`, stamp: m.vote === p.id ? 'Твій голос' : '', i })).join('')}</div>
         <div class="tally-line"><span>${m.vote ? 'Голос прийнято' : 'Голосування таємне'}</span><span class="hatch"></span><span>${m.vote ? 'можна змінити' : 'обери плакат'}</span></div><div id="dots"></div>`;
     }
-    case 'voteResult': {
-      const r = s.res || {}, out = r.out ? P(r.out) : null;
-      return `${R.phaseTag(s, 'Вирок')}<div class="verdict-out">${out ? `${R.poster(s, out, { stamp: 'Вигнано' })}<h1 class="headline">${r.out === m.id ? 'Тебе вигнали' : `Вигнали: ${esc(dn(out))}`}</h1>` : `<h1 class="headline">${ransom('Нікого', 32)}<span>не вигнали</span></h1>`}
-        <p class="deck-line">Хто він насправді — редакція повідомить пізніше.</p></div>${R.bars(s)}`;
-    }
+    case 'voteResult':
+      return `${R.phaseTag(s, 'Вирок')}<div class="verdict-out">${R.outs(s, true)}
+        <p class="deck-line">Хто вони насправді — редакція повідомить пізніше.</p></div>${R.bars(s)}`;
     case 'guess':
       if (m.canGuess) return `${R.phaseTag(s)}<span class="stamp">Шанс шпигуна</span><h1 class="headline">Назви локацію</h1>
         <p class="muted">Вгадаєш — перемога${m.partners.length ? ' для обох' : ''}. Помилишся — ${m.partnerIn ? 'вибуваєш ти, а напарник грає далі' : 'програш'}. Можна не ризикувати${m.alive ? ' й грати далі' : ''}.${m.partnerIn ? ' Напарник вирішує окремо.' : ''}</p>
